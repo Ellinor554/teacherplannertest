@@ -179,7 +179,7 @@ function updateTimerDisplay() {
     const path    = document.getElementById('timer-path');
     if (display) display.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
     if (path) {
-        const angle = (timerSeconds / timerMaxSeconds) * 360;
+        const angle = (timerSeconds / 3600) * 360;
         if (angle >= 359.99) {
             // Full circle – a single SVG arc whose start === end is degenerate (renders nothing),
             // so we use two half-arcs (top → bottom → top) to paint the complete disc.
