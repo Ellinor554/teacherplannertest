@@ -49,6 +49,8 @@ export function toggleBottomToolbar() {
 export function updateFontSize(val) {
     const el = document.getElementById('sb-plan');
     if (el) el.style.fontSize = val + 'px';
+    const elRight = document.getElementById('sb-plan-right');
+    if (elRight) elRight.style.fontSize = val + 'px';
 }
 
 export function toggleSplit() {
