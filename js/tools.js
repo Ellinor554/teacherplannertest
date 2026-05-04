@@ -126,7 +126,7 @@ function generateFractionBoard() {
 }
 
 function generateTimerUI() {
-    return `<div class="text-center p-2"><div class="timer-container mb-4"><div class="timer-face" id="timer-face"><div id="timer-marks-container"></div><svg class="timer-svg" viewBox="0 0 100 100"><circle class="timer-circle-bg" cx="50" cy="50" r="45" /><path id="timer-path" class="timer-path" d="" /></svg><div class="timer-center-dot"></div></div></div><div id="timer-display" class="text-3xl font-bold mb-4 font-mono text-gray-700">10:00</div><div class="flex flex-col gap-3"><div class="flex items-center justify-center gap-2"><input type="number" id="timer-input" value="10" min="1" max="60" class="w-16 border p-1 rounded text-center font-bold" onchange="window.resetTimer()"><span class="text-xs font-bold text-gray-400 uppercase">Min</span></div><div class="flex gap-2 justify-center"><button onclick="window.startTimer()" id="timer-start-btn" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#8da089]">Start</button><button onclick="window.pauseTimer()" class="bg-gray-400 text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-500">Paus</button><button onclick="window.resetTimer()" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#92756e]">Nollställ</button></div></div></div>`;
+    return `<div class="text-center p-2"><div class="timer-container mb-4"><div class="timer-face" id="timer-face"><div id="timer-marks-container"></div><svg class="timer-svg" viewBox="0 0 100 100"><circle class="timer-circle-bg" cx="50" cy="50" r="45" /><path id="timer-path" class="timer-path" d="" /></svg><div class="timer-center-dot"></div></div></div><div id="timer-display" class="text-3xl font-bold mb-4 font-mono text-gray-700">10:00</div><div class="flex flex-col gap-3"><div class="flex items-center justify-center gap-2"><input type="number" id="timer-input" value="10" min="1" max="60" class="w-16 border p-1 rounded text-center font-bold" oninput="window.resetTimer()"><span class="text-xs font-bold text-gray-400 uppercase">Min</span></div><div class="flex gap-2 justify-center"><button onclick="window.startTimer()" id="timer-start-btn" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#8da089]">Start</button><button onclick="window.pauseTimer()" class="bg-gray-400 text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-500">Paus</button><button onclick="window.resetTimer()" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#92756e]">Nollställ</button></div></div></div>`;
 }
 
 function initTimerFace() {
@@ -180,10 +180,18 @@ function updateTimerDisplay() {
     if (display) display.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
     if (path) {
         const angle = (timerSeconds / timerMaxSeconds) * 360;
-        const start = polarToCartesian(50, 50, 45, angle);
-        const end   = polarToCartesian(50, 50, 45, 0);
-        const largeArcFlag = angle <= 180 ? '0' : '1';
-        path.setAttribute('d', ['M', 50, 50, 'L', start.x, start.y, 'A', 45, 45, 0, largeArcFlag, 0, end.x, end.y, 'Z'].join(' '));
+        if (angle >= 359.99) {
+            // Full circle – a single SVG arc whose start === end is degenerate (renders nothing),
+            // so we use two half-arcs (top → bottom → top) to paint the complete disc.
+            const top    = polarToCartesian(50, 50, 45,   0);
+            const bottom = polarToCartesian(50, 50, 45, 180);
+            path.setAttribute('d', `M ${top.x} ${top.y} A 45 45 0 0 0 ${bottom.x} ${bottom.y} A 45 45 0 0 0 ${top.x} ${top.y} Z`);
+        } else {
+            const start = polarToCartesian(50, 50, 45, angle);
+            const end   = polarToCartesian(50, 50, 45, 0);
+            const largeArcFlag = angle <= 180 ? '0' : '1';
+            path.setAttribute('d', ['M', 50, 50, 'L', start.x, start.y, 'A', 45, 45, 0, largeArcFlag, 0, end.x, end.y, 'Z'].join(' '));
+        }
     }
 }
 
