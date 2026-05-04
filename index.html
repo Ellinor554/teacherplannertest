@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lärarplattform - Veckoplanering</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#a69085">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Planering">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        .serif-title { font-family: 'Playfair Display', serif; color: #a69085; }
+        .sidebar-btn { writing-mode: vertical-rl; transform: rotate(180deg); padding: 1.5rem 0.5rem; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.1em; background-color: #b0a99f; color: white; border: none; cursor: pointer; transition: background-color 0.2s; border-bottom: 1px solid rgba(255,255,255,0.2); }
+        .sidebar-btn.active { background-color: #a6857e; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #d1cfcb; }
+        .clock-display { background-color: #9eb19a; color: white; padding: 0.5rem 1rem; border-radius: 10px; font-family: monospace; font-size: 1.5rem; font-weight: bold; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1cfcb; border-radius: 10px; }
+        #active-tool-container.hidden-tool { display: none; }
+        .is-planned { font-weight: 900 !important; color: #1a1a1a !important; }
+        .status-dot { width: 8px; height: 8px; background-color: #9eb19a; border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 4px rgba(158, 177, 154, 0.5); }
+        .notes-area { background-color: #fcfbf9; border: 1px solid #e5e3df; border-radius: 8px; padding: 8px; font-size: 11px; width: 100%; min-height: 60px; resize: none; outline: none; color: #666; transition: border-color 0.2s; }
+        .notes-area:focus { border-color: #a6857e; background-color: #fff; }
+        .copy-badge { font-size: 9px; background: #e8f0e6; color: #6a9466; border-radius: 4px; padding: 1px 5px; font-weight: 700; letter-spacing: 0.05em; }
+        .timer-container { position: relative; width: 200px; height: 200px; margin: 0 auto; background: white; border-radius: 20px; padding: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; }
+        .timer-face { position: relative; width: 170px; height: 170px; background: #f8f8f8; border-radius: 50%; border: 2px solid #eee; }
+        .timer-svg { transform: rotate(-90deg); width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 5; }
+        .timer-circle-bg { fill: #f0f0f0; }
+        .timer-path { fill: #ef4444; transition: d 0.3s ease; }
+        .timer-center-dot { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: #333; border-radius: 50%; transform: translate(-50%, -50%); z-index: 10; }
+        .timer-mark { position: absolute; top: 0; left: 50%; width: 1px; height: 6px; background: #bbb; transform-origin: 50% 85px; z-index: 2; }
+        .timer-mark.major { background: #666; height: 10px; width: 2px; }
+        #sb-plan img { max-width: 100%; height: auto; border-radius: 8px; display: block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .img-wrapper { position: absolute; cursor: move; user-select: none; display: inline-block; }
+        .img-wrapper img { display: block; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none; }
+        .img-wrapper:hover .img-controls { opacity: 1; }
+        .img-controls { position: absolute; top: -12px; right: -12px; opacity: 0; transition: opacity 0.15s; display: flex; gap: 4px; }
+        .img-ctrl-btn { width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+        .img-delete-btn { background: #e57373; color: white; }
+        .img-resize-handle { position: absolute; bottom: -5px; right: -5px; width: 12px; height: 12px; background: #a6857e; border-radius: 2px; cursor: se-resize; }
+        #sb-plan { position: relative; }
+        .toolbar-btn { display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #e5e3df; background: white; color: #aaa; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+        .size-slider { -webkit-appearance: none; appearance: none; background: transparent; outline: none; cursor: pointer; max-width: 3.5rem; padding: 0; flex-shrink: 0; }
+        .size-slider::-webkit-slider-runnable-track { height: 3px; background: #555; border-radius: 2px; }
+        .size-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 12px; border-radius: 6px; background: #C8B49A; border: none; cursor: pointer; margin-top: -4.5px; }
+        .size-slider::-moz-range-track { height: 3px; background: #555; border-radius: 2px; border: none; }
+        .size-slider::-moz-range-thumb { width: 20px; height: 12px; border-radius: 6px; background: #C8B49A; border: none; cursor: pointer; }
+        .toolbar-btn:hover { border-color: #a6857e; color: #a6857e; }
+        .toolbar-btn.active { background: #a6857e; border-color: #a6857e; color: white; }
+        .notes-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
+        .notes-modal.hidden { display: none; }
+        .notes-modal-content { background: white; border-radius: 16px; padding: 24px; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .private-notes-area { width: 100%; min-height: 200px; resize: vertical; border: 1px solid #e5e3df; border-radius: 8px; padding: 12px; font-size: 13px; outline: none; font-family: 'Inter', sans-serif; color: #444; background: #fdfcfb; }
+        .private-notes-area:focus { border-color: #a6857e; background: white; }
+
+#toolbar-toggle-btn {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Sidebar toggle */
+#lesson-sidebar {
+    transition: width 0.35s ease, opacity 0.35s ease, padding-right 0.35s ease;
+    min-width: 0;
+    overflow: hidden;
+}
+#view-day-detail.sidebar-hidden #lesson-sidebar {
+    width: 0;
+    opacity: 0;
+    padding-right: 0;
+    pointer-events: none;
+}
+#show-sidebar-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+#view-day-detail.sidebar-hidden #show-sidebar-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+    </style>
+</head>
+<body>
+<div class="flex flex-1 overflow-hidden">
+    <div class="flex flex-col w-12 bg-[#b0a99f] border-r border-gray-300 z-30">
+        <button onclick="changeView('oversikt')" id="btn-oversikt" class="sidebar-btn active">Översikt</button>
+        <button onclick="changeView('framtid')" id="btn-framtid" class="sidebar-btn">Framtid</button>
+        <button onclick="changeView('mandag')" id="btn-mandag" class="sidebar-btn">Måndag</button>
+        <button onclick="changeView('tisdag')" id="btn-tisdag" class="sidebar-btn">Tisdag</button>
+        <button onclick="changeView('onsdag')" id="btn-onsdag" class="sidebar-btn">Onsdag</button>
+        <button onclick="changeView('torsdag')" id="btn-torsdag" class="sidebar-btn">Torsdag</button>
+        <button onclick="changeView('fredag')" id="btn-fredag" class="sidebar-btn">Fredag</button>
+    </div>
+    <div class="flex-1 flex flex-col p-6 overflow-hidden">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-4">
+                <button onclick="changeWeek(-1)" class="text-2xl font-bold hover:text-gray-600">&lsaquo;</button>
+                <h1 class="text-4xl serif-title">Vecka <span id="current-week-display">--</span></h1>
+                <button onclick="changeWeek(1)" class="text-2xl font-bold hover:text-gray-600">&rsaquo;</button>
+            </div>
+            <div id="digital-clock" class="clock-display tracking-widest">00:00</div>
+        </div>
+        <div id="view-oversikt" class="grid grid-cols-5 gap-4 h-full overflow-y-auto custom-scrollbar pb-10"></div>
+        <div id="view-framtid" class="hidden overflow-y-auto custom-scrollbar pb-10">
+            <h2 class="text-xl mb-6 font-bold uppercase tracking-widest text-gray-400">Planera framåt</h2>
+            <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4" id="future-weeks-grid"></div>
+        </div>
+        <div id="view-day-detail" class="hidden flex flex-row gap-8 h-full overflow-hidden">
+            <div id="lesson-sidebar" class="w-1/3 flex flex-col overflow-y-auto pr-4 custom-scrollbar">
+                <div id="active-tool-container" class="hidden-tool card p-5 mb-6 border-[#a6857e]/20">
+                    <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                        <h3 id="tool-title" class="font-bold text-[#a6857e] uppercase text-xs tracking-widest">Verktyg</h3>
+                        <button onclick="closeTool()" class="text-gray-400 hover:text-black font-bold text-xl leading-none">&times;</button>
+                    </div>
+                    <div id="tool-content"></div>
+                </div>
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <h2 id="detail-day-name" class="text-4xl font-bold italic serif-title">Måndag</h2>
+                        <p id="detail-date" class="text-gray-500 text-sm font-medium"></p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="addLessonPrompt()" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#8da089] transition-all transform hover:scale-105">+ Ny lektion</button>
+                        <button onclick="toggleSidebar()" title="Dölj sidopanel" class="bg-[#c8b49a] text-white px-3 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#b8a48a] transition-all transform hover:scale-105">◀ Dölj</button>
+                    </div>
+                </div>
+                <div id="detail-lesson-list" class="space-y-4 pb-20"></div>
+            </div>
+            <div class="flex-grow w-2/3 card flex flex-col bg-white min-w-0 shadow-xl overflow-hidden">
+                <div id="smartboard-content" class="flex-1 overflow-y-auto custom-scrollbar p-10">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 id="sb-subject" class="text-6xl font-bold mb-2 text-[#a6857e] tracking-tight">Välj en lektion</h3>
+                            <p id="sb-time" class="text-2xl text-gray-300 italic"></p>
+                        </div>
+                        <button id="show-sidebar-btn" onclick="toggleSidebar()" title="Visa sidopanel" class="bg-[#c8b49a] text-white px-3 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#b8a48a] transition-all transform hover:scale-105">▶ Visa</button>
+                    </div>
+                    <div id="sb-columns" class="flex gap-6 min-h-[500px]">
+                        <div id="sb-plan" class="flex-1 outline-none min-h-[500px] whitespace-pre-wrap pb-32 text-gray-700 relative" contenteditable="true" oninput="handleInput()" onpaste="handlePaste(event)" placeholder="Skriv din planering här..."></div>
+                        <div id="sb-plan-divider" class="hidden w-px bg-gray-100 self-stretch flex-shrink-0"></div>
+                        <div id="sb-plan-right" class="hidden flex-1 outline-none min-h-[500px] whitespace-pre-wrap pb-32 text-gray-700 relative" contenteditable="true" oninput="handleInputRight()" onpaste="handlePasteRight(event)" placeholder="Höger kolumn..."></div>
+                    </div>
+                </div>
+                <!-- Bottom toolbar -->
+                <div class="border-t border-gray-100 bg-[#faf9f8] px-6 py-3 flex items-center gap-3">
+                    <!-- Text formatting -->
+                    <button onclick="document.execCommand('bold')" title="Fet (Ctrl+B)" id="bold-btn" class="toolbar-btn w-7 h-7 font-bold text-sm">B</button>
+                    <button onclick="document.execCommand('italic')" title="Kursiv (Ctrl+I)" id="italic-btn" class="toolbar-btn w-7 h-7 text-sm">/</button>
+                    <button onclick="toggleNotesModal()" title="Privata lektionsanteckningar" id="notes-btn" class="toolbar-btn w-7 h-7 text-base">📝</button>
+                    <div class="w-px h-5 bg-gray-200 mx-1"></div>
+                    <!-- Font size -->
+                    <input type="range" min="16" max="80" value="32" title="Textstorlek" class="w-14 size-slider" oninput="updateFontSize(this.value)">
+                    <div class="w-px h-5 bg-gray-200 mx-1"></div>
+                    <!-- Image -->
+                    <button onclick="document.getElementById('image-upload').click()" title="Lägg till bild" class="toolbar-btn w-7 h-7 text-base">🖼</button>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden" style="display:none" onchange="insertImageFromFile(this)">
+                    <!-- Split -->
+                    <button id="split-btn" onclick="toggleSplit()" title="Dela i två kolumner" class="toolbar-btn w-7 h-7 text-xs">⬜⬜</button>
+                    <div class="flex-1"></div>
+                    <button class="border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-400 uppercase tracking-widest transition" onclick="toggleFullscreen()">Helskärm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="bottom-toolbar" class="h-20 bg-[#f7f6f5] border-t border-gray-300 flex items-center px-8 gap-8 z-40">
+    <span class="font-bold text-[10px] uppercase tracking-[0.2em] text-gray-400">Verktygslåda</span>
+    <div class="flex gap-4">
+        <button onclick="openTool('multiplication')" class="flex items-center gap-3 bg-white border border-gray-200 px-6 py-3 rounded-xl text-sm font-semibold hover:border-[#a6857e] hover:text-[#a6857e] transition-all shadow-sm"><span class="text-lg">×</span> Multiplikation</button>
+        <button onclick="openTool('fractions')" class="flex items-center gap-3 bg-white border border-gray-200 px-6 py-3 rounded-xl text-sm font-semibold hover:border-[#a6857e] hover:text-[#a6857e] transition-all shadow-sm"><span class="text-lg">📏</span> Bråkplank</button>
+        <button onclick="openTool('timer')" class="flex items-center gap-3 bg-white border border-gray-200 px-6 py-3 rounded-xl text-sm font-semibold hover:border-[#a6857e] hover:text-[#a6857e] transition-all shadow-sm"><span class="text-lg">⏱️</span> Time Timer</button>
+        <button onclick="openTool('stopwatch')" class="flex items-center gap-3 bg-white border border-gray-200 px-6 py-3 rounded-xl text-sm font-semibold hover:border-[#a6857e] hover:text-[#a6857e] transition-all shadow-sm"><span class="text-lg">⏱️</span> Stoppur</button>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <div class="flex items-center gap-3 text-sm">
+        <button onclick="savePlannerAs()" 
+                class="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-5 py-2.5 rounded-2xl text-emerald-700 font-medium transition-all active:scale-95">
+            💾 Spara som fil...
+        </button>
+        <button onclick="openPlannerFile()" 
+                class="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-5 py-2.5 rounded-2xl text-amber-700 font-medium transition-all active:scale-95">
+            📂 Öppna fil...
+        </button>
+
+        <button onclick="downloadBackup()" 
+                class="px-4 py-2 text-xs text-gray-500 hover:text-gray-700 underline font-medium">Ladda ner backup</button>
+
+        <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="importBackup(event)">
+        <button onclick="document.getElementById('import-file-input').click()" 
+                class="px-4 py-2 text-xs text-gray-500 hover:text-gray-700 underline font-medium">Importera backup</button>
+
+        <div id="file-status" class="ml-3 text-[10px] font-mono text-gray-400 tracking-tight">localStorage (ingen diskfil kopplad)</div>
+    </div>
+</div>
+<button id="toolbar-toggle-btn" 
+        onclick="toggleBottomToolbar()"
+        class="fixed bottom-6 right-6 w-14 h-14 bg-white rounded-3xl shadow-2xl border border-gray-200 flex items-center justify-center text-3xl z-[100] active:scale-95 transition-all hover:border-[#a6857e]">
+    🛠️
+</button>
+
+<!-- Private lesson notes modal -->
+<div id="lesson-notes-modal" class="notes-modal hidden" onclick="handleNotesModalBackdrop(event)">
+    <div class="notes-modal-content" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="font-bold text-[#a6857e] uppercase text-xs tracking-widest">🔒 Privata lektionsanteckningar</h3>
+                <p id="notes-modal-lesson-name" class="text-sm text-gray-500 mt-1"></p>
+            </div>
+            <button onclick="closeNotesModal()" class="text-gray-400 hover:text-black font-bold text-xl leading-none">&times;</button>
+        </div>
+        <textarea id="private-notes-textarea" class="private-notes-area custom-scrollbar" placeholder="Skriv privata anteckningar för denna lektion... (syns bara för dig)"></textarea>
+        <div class="flex justify-between items-center mt-4">
+            <span class="text-[10px] text-gray-400 italic">🔒 Visas bara för läraren – ej i elevvy</span>
+            <button onclick="savePrivateNotes(); closeNotesModal();" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#92756e] transition-all">Spara &amp; stäng</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ================================================
+   1. CONSTANTS & CONFIG
+   ================================================ */
+const days = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag'];
+const months = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december'];
+// Colour palette per subject (case-insensitive prefix match)
+const SUBJECT_COLORS = {
+    'svenska': { bg: '#D4AF37', light: '#fdf7e0', text: '#7a6100' },
+    'matte': { bg: '#778899', light: '#edf0f3', text: '#2e3d4f' },
+    'matematik': { bg: '#778899', light: '#edf0f3', text: '#2e3d4f' },
+    'engelska': { bg: '#B26666', light: '#f9ecec', text: '#5e2222' },
+    'biologi': { bg: '#8FBC8F', light: '#eef6ee', text: '#2d5a2d' },
+    'kemi': { bg: '#6B8E23', light: '#eef3e2', text: '#354712' },
+    'fysik': { bg: '#555555', light: '#ebebeb', text: '#222222' },
+    'teknik': { bg: '#B0B0B0', light: '#f2f2f2', text: '#3a3a3a' },
+};
+/* ================================================
+   2. GLOBAL STATE
+   ================================================ */
+const today = new Date();
+let currentWeek = getWeekNumber(today);
+let currentYear = today.getFullYear();
+let activeView = 'oversikt';
+let activeDayIndex = 0;
+let activeLessonId = null;
+let plannerData = JSON.parse(localStorage.getItem('teacher_planner_data')) || {};
+let timerInterval = null;
+let timerSeconds = 0;
+let timerMaxSeconds = 600;
+let stopwatchInterval = null;
+let stopwatchSeconds = 0;
+let stopwatchRunning = false;
+let isSplitActive = false;
+let currentFileHandle = null;
+
+/* ================================================
+   3. UTILITY FUNCTIONS
+   ================================================ */
+function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+function getSubjectColor(subject) {
+    if (!subject) return null;
+    const key = subject.toLowerCase().trim();
+    for (const [name, colors] of Object.entries(SUBJECT_COLORS)) {
+        if (key.startsWith(name)) return colors;
+    }
+    return null;
+}
+function getMonday(y, w) {
+    const d = new Date(y, 0, 1 + (w - 1) * 7);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+}
+function getSortableTime(timeStr) {
+    if (!timeStr) return "00:00";
+    const match = timeStr.match(/\d{1,2}:\d{2}/);
+    if (!match) return "00:00";
+    let [hours, minutes] = match[0].split(':');
+    return hours.padStart(2, '0') + ":" + minutes.padStart(2, '0');
+}
+function checkIsPlanned(planText) {
+    if (!planText) return false;
+    const cleanText = planText.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    return cleanText.length > 0 || planText.includes('<img');
+}
+
+/* ================================================
+   4. DATA MANAGEMENT (UPDATED FOR DISK)
+   ================================================ */
+function migrateData() {
+    Object.keys(plannerData).forEach(key => {
+        const val = plannerData[key];
+        if (Array.isArray(val)) {
+            plannerData[key] = { lessons: val, dayNotes: ["", "", "", "", ""] };
+        } else if (val && !val.lessons) {
+            plannerData[key] = { lessons: [[], [], [], [], []], dayNotes: ["", "", "", "", ""] };
+        }
+    });
+    saveData();
+}
+
+function getLessons(weekKey) {
+    const entry = plannerData[weekKey];
+    if (!entry) return null;
+    if (Array.isArray(entry)) return entry;
+    if (Array.isArray(entry.lessons)) return entry.lessons;
+    return null;
+}
+
+function weekHasLessons(weekKey) {
+    const lessons = getLessons(weekKey);
+    return lessons && lessons.some(day => Array.isArray(day) && day.length > 0);
+}
+
+function ensureWeekExists() {
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    if (weekHasLessons(weekKey)) return;
+    let sourceKey = null;
+    for (let i = 1; i <= 52; i++) {
+        let prevW = currentWeek - i;
+        let prevY = currentYear;
+        while (prevW < 1) { prevW += 52; prevY--; }
+        const candidate = `${prevY}-W${prevW}`;
+        if (weekHasLessons(candidate)) {
+            sourceKey = candidate;
+            break;
+        }
+    }
+    if (sourceKey) {
+        copySchedule(sourceKey, weekKey);
+        plannerData[weekKey]._copiedFrom = sourceKey;
+    } else {
+        plannerData[weekKey] = { lessons: [[], [], [], [], []], dayNotes: ["", "", "", "", ""] };
+    }
+    saveData();
+}
+
+function copySchedule(sourceKey, targetKey) {
+    const sourceLessons = getLessons(sourceKey) || [[], [], [], [], []];
+    const existing = plannerData[targetKey];
+    const existingNotes = (existing && existing.dayNotes) ? existing.dayNotes : ["", "", "", "", ""];
+    plannerData[targetKey] = { lessons: [[], [], [], [], []], dayNotes: existingNotes };
+    sourceLessons.forEach((dayLessons, idx) => {
+        if (!Array.isArray(dayLessons)) return;
+        dayLessons.forEach(lesson => {
+            plannerData[targetKey].lessons[idx].push({
+                id: Date.now() + Math.random(),
+                subject: lesson.subject,
+                time: lesson.time,
+                plan: ""
+            });
+        });
+    });
+}
+
+async function saveData() {
+    // Always keep localStorage as safety net (works everywhere, survives reloads)
+    localStorage.setItem('teacher_planner_data', JSON.stringify(plannerData));
+
+    // If user has chosen a real JSON file on disk → auto-save there too
+    if (currentFileHandle) {
+        try {
+            const writable = await currentFileHandle.createWritable();
+            await writable.write(JSON.stringify(plannerData, null, 2)); // pretty-printed for easy reading
+            await writable.close();
+        } catch (err) {
+            console.warn("Disk-skrivning misslyckades (filen kanske låst):", err);
+        }
+    }
+}
+
+function sortPlannerData(weekKey, dayIdx) {
+    if (plannerData[weekKey] && plannerData[weekKey].lessons && plannerData[weekKey].lessons[dayIdx]) {
+        plannerData[weekKey].lessons[dayIdx].sort((a, b) => getSortableTime(a.time).localeCompare(getSortableTime(b.time)));
+    }
+}
+
+function weekHasCustomContent(weekKey) {
+    const lessons = getLessons(weekKey);
+    if (!lessons) return false;
+    return lessons.some(day =>
+        Array.isArray(day) && day.some(lesson => checkIsPlanned(lesson.plan))
+    );
+}
+
+function propagateToFutureWeeks(sourceKey) {
+    for (let i = 1; i <= 52; i++) {
+        let futureW = currentWeek + i;
+        let futureY = currentYear;
+        if (futureW > 52) { futureW -= 52; futureY++; }
+        const futureKey = `${futureY}-W${futureW}`;
+        if (weekHasCustomContent(futureKey)) continue;
+        copySchedule(sourceKey, futureKey);
+        plannerData[futureKey]._copiedFrom = sourceKey;
+    }
+}
+
+/* ================================================
+   NEW: FILE-ON-DISK PERSISTENCE (production-grade)
+   ================================================ */
+async function savePlannerAs() {
+    if (!('showSaveFilePicker' in window)) {
+        alert("Din webbläsare stödjer inte direkt filsparande.\nAnvänd istället 'Ladda ner backup' nedan.");
+        return;
+    }
+    try {
+        const handle = await window.showSaveFilePicker({
+            suggestedName: `lärarplaner-${currentYear}.json`,
+            types: [{ description: "Lärarplan JSON", accept: { "application/json": [".json"] } }]
+        });
+        currentFileHandle = handle;
+        await saveData();
+        updateFileStatus(`💾 ${handle.name}`);
+        alert(`✅ Planen sparas nu AUTOMATISKT till:\n${handle.name}\n\nDu kan stänga och öppna webbläsaren – filen ligger på din disk!`);
+    } catch (err) {
+        if (err.name !== 'AbortError') alert("Filval avbrutet.");
+    }
+}
+
+async function openPlannerFile() {
+    if (!('showOpenFilePicker' in window)) {
+        alert("Din webbläsare stödjer inte direkt filöppning.\nAnvänd 'Importera backup' istället.");
+        return;
+    }
+    try {
+        const [handle] = await window.showOpenFilePicker({
+            types: [{ description: "Lärarplan JSON", accept: { "application/json": [".json"] } }]
+        });
+        currentFileHandle = handle;
+
+        const file = await handle.getFile();
+        const text = await file.text();
+        plannerData = JSON.parse(text) || {};
+
+        migrateData();
+        refreshUI();
+        updateFileStatus(`📂 ${handle.name}`);
+    } catch (err) {
+        if (err.name !== 'AbortError') console.error(err);
+    }
+}
+
+function downloadBackup() {
+    const dataStr = JSON.stringify(plannerData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = `lärarplaner-backup-${currentYear}.json`;
+    link.click();
+}
+
+function importBackup(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        try {
+            plannerData = JSON.parse(ev.target.result) || {};
+            migrateData();
+            refreshUI();
+            alert("✅ Backup importerad från disk!");
+        } catch(err) {
+            alert("Ogiltig JSON-fil.");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function updateFileStatus(msg) {
+    const el = document.getElementById('file-status');
+    if (el) el.innerHTML = msg;
+}
+
+/* ================================================
+   5. RENDERING FUNCTIONS (unchanged except minor calls)
+   ================================================ */
+function renderOversikt() {
+    const container = document.getElementById('view-oversikt');
+    if (!container) return;
+    container.innerHTML = '';
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const monday = getMonday(currentYear, currentWeek);
+    const wasCopied = plannerData[weekKey] && plannerData[weekKey]._copiedFrom;
+    if (!plannerData[weekKey] || !plannerData[weekKey].lessons) {
+        plannerData[weekKey] = { lessons: [[], [], [], [], []], dayNotes: ["", "", "", "", ""] };
+    }
+    days.forEach((dayName, idx) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + idx);
+        const card = document.createElement('div');
+        card.className = "card p-5 flex flex-col min-h-[450px] transition-all hover:shadow-lg cursor-default";
+        sortPlannerData(weekKey, idx);
+        const lessons = (plannerData[weekKey].lessons && plannerData[weekKey].lessons[idx]) ? plannerData[weekKey].lessons[idx] : [];
+        const notes = (plannerData[weekKey].dayNotes && plannerData[weekKey].dayNotes[idx]) ? plannerData[weekKey].dayNotes[idx] : "";
+        let lessonsHtml = '';
+        lessons.forEach(lesson => {
+            const isPlanned = checkIsPlanned(lesson.plan);
+            const color = getSubjectColor(lesson.subject);
+            const dotStyle = color ? `style="background-color:${color.bg};box-shadow:0 0 4px ${color.bg}88"` : '';
+            const subjectStyle = color ? `style="color:${color.text}"` : '';
+            const bgStyle = color ? `style="border-left: 3px solid ${color.bg}"` : 'style="border-left: 3px solid transparent"';
+            lessonsHtml += `
+                <div onclick="goToLesson(${idx}, ${lesson.id})" class="text-[11px] border-b border-gray-50 py-3 flex items-center gap-2 hover:bg-gray-50 cursor-pointer transition-colors rounded px-1" ${bgStyle}>
+                    <span class="font-bold text-gray-400 w-12 shrink-0">${lesson.time}</span>
+                    <span class="flex-1 ${isPlanned ? 'is-planned' : 'font-medium'} truncate" ${subjectStyle}>
+                        ${isPlanned ? `<span class="status-dot" ${dotStyle}></span>` : ''}${lesson.subject}
+                    </span>
+                </div>`;
+        });
+        const copiedBadge = wasCopied && idx === 0 ? `<span class="copy-badge ml-2">Kopierad</span>` : '';
+        card.innerHTML = `
+            <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                <h2 class="font-bold text-[#a6857e] text-lg serif-title flex items-center">${dayName}${copiedBadge}</h2>
+                <span class="text-[10px] font-bold bg-gray-50 px-2 py-1 rounded text-gray-400">${date.getDate()} ${months[date.getMonth()].substring(0,3)}</span>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar mb-4">
+                ${lessonsHtml || '<p class="text-[10px] text-gray-300 italic mt-4 text-center">Inga lektioner</p>'}
+                <button onclick="goToDayAndAdd(${idx})" class="w-full mt-4 text-[10px] text-gray-400 font-bold border border-dashed border-gray-200 p-2 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all uppercase">+ Lektion</button>
+            </div>
+            <div class="mt-auto pt-4 border-t border-gray-100">
+                <label class="text-[10px] font-bold uppercase text-gray-400 mb-1 block">Anteckningar</label>
+                <textarea class="notes-area custom-scrollbar" placeholder="Möte, rastvakt..." oninput="saveDayNote(${idx}, this.value)">${notes}</textarea>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function renderDayDetail() {
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    sortPlannerData(weekKey, activeDayIndex);
+    const lessons = (plannerData[weekKey] && plannerData[weekKey].lessons[activeDayIndex]) ? plannerData[weekKey].lessons[activeDayIndex] : [];
+    const listContainer = document.getElementById('detail-lesson-list');
+    listContainer.innerHTML = '';
+    const monday = getMonday(currentYear, currentWeek);
+    const thisDate = new Date(monday);
+    thisDate.setDate(monday.getDate() + activeDayIndex);
+    document.getElementById('detail-day-name').innerText = days[activeDayIndex];
+    document.getElementById('detail-date').innerText = `${thisDate.getDate()} ${months[thisDate.getMonth()]} ${currentYear}`;
+    if (!activeLessonId && lessons.length > 0) activeLessonId = lessons[0].id;
+    lessons.forEach(lesson => {
+        const btn = document.createElement('div');
+        const isActive = lesson.id === activeLessonId;
+        const isPlanned = checkIsPlanned(lesson.plan);
+        const color = getSubjectColor(lesson.subject);
+        if (isActive) {
+            const bg = color ? color.bg : '#a6857e';
+            btn.style.cssText = `background-color:${bg};border-color:${bg};color:white`;
+            btn.className = `w-full text-left p-5 rounded-2xl cursor-pointer transition-all shadow-sm border scale-[1.02] shadow-md`;
+        } else {
+            btn.className = `w-full text-left p-5 rounded-2xl cursor-pointer transition-all shadow-sm border bg-white border-gray-100 hover:bg-gray-50`;
+            if (color) btn.style.borderLeft = `4px solid ${color.bg}`;
+        }
+        btn.setAttribute('data-id', lesson.id);
+        const timeColor = isActive ? 'rgba(255,255,255,0.7)' : '#9ca3af';
+        const subjectColor = isActive ? 'white' : (color ? color.text : 'inherit');
+        btn.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div class="flex-1 overflow-hidden pr-2">
+                    <div class="text-[10px] uppercase font-bold mb-1" style="color:${timeColor}">${lesson.time}</div>
+                    <div class="text-xl lesson-subject-title truncate ${isPlanned ? 'is-planned' : 'font-bold'}" style="color:${subjectColor}">
+                        ${isPlanned && !isActive ? `<span class="status-dot" ${color ? `style="background:${color.bg}"` : ''}></span>` : ''}${lesson.subject}
+                    </div>
+                </div>
+                <button onclick="deleteLesson(${lesson.id}, event)" class="text-lg opacity-30 hover:opacity-100 px-2 flex-shrink-0">&times;</button>
+            </div>`;
+        btn.onclick = () => { activeLessonId = lesson.id; renderDayDetail(); };
+        listContainer.appendChild(btn);
+        if (isActive) {
+            const sbSubject = document.getElementById('sb-subject');
+            sbSubject.innerText = lesson.subject;
+            sbSubject.style.color = color ? color.bg : '#a6857e';
+            document.getElementById('sb-time').innerText = "Klockan " + lesson.time;
+            document.getElementById('sb-plan').innerHTML = lesson.plan || "";
+            document.getElementById('sb-plan-right').innerHTML = lesson.planRight || "";
+            const isSplit = !!lesson.planRight || lesson.split;
+            setSplit(isSplit);
+            ['#sb-plan', '#sb-plan-right'].forEach(sel => {
+                document.querySelectorAll(sel + ' .img-wrapper').forEach(wrapper => {
+                    wrapper.contentEditable = false;
+                    const resizeHandle = wrapper.querySelector('.img-resize-handle');
+                    const delBtn = wrapper.querySelector('.img-delete-btn');
+                    if (resizeHandle) makeDraggable(wrapper, resizeHandle);
+                    if (delBtn) delBtn.onmousedown = (e) => { e.stopPropagation(); wrapper.remove(); handleInput(); };
+                });
+            });
+            updateNotesButtonState(lesson);
+        }
+    });
+    if (lessons.length === 0) {
+        document.getElementById('sb-subject').innerText = "Inga lektioner";
+        document.getElementById('sb-time').innerText = "Klicka på '+ Ny lektion' för att börja";
+        document.getElementById('sb-plan').innerHTML = "";
+        activeLessonId = null;
+        updateNotesButtonState(null);
+    }
+}
+
+function renderFutureWeeks() {
+    const grid = document.getElementById('future-weeks-grid');
+    grid.innerHTML = '';
+    for (let i = 1; i <= 52; i++) {
+        const card = document.createElement('div');
+        const isCurrent = i === currentWeek;
+        card.className = `card p-5 flex flex-col items-center justify-center cursor-pointer hover:bg-white transition-all border-none ${isCurrent ? 'ring-2 ring-[#a6857e] bg-white' : 'bg-white/50 opacity-60 hover:opacity-100'}`;
+        card.onclick = () => changeWeekTo(i);
+        card.innerHTML = `<div class="text-[9px] text-gray-400 uppercase font-bold mb-1">2026</div><div class="font-bold text-lg text-[#a6857e]">v.${i}</div>`;
+        grid.appendChild(card);
+    }
+}
+
+/* ================================================
+   6. VIEW & NAVIGATION
+   ================================================ */
+function refreshUI() {
+    document.getElementById('current-week-display').innerText = currentWeek;
+    ensureWeekExists();
+    renderOversikt();
+    if (activeView === 'day-detail') renderDayDetail();
+}
+
+function changeView(view) {
+    activeView = view;
+    document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('view-oversikt').classList.add('hidden');
+    document.getElementById('view-framtid').classList.add('hidden');
+    document.getElementById('view-day-detail').classList.add('hidden');
+    if (view === 'oversikt') {
+        document.getElementById('view-oversikt').classList.remove('hidden');
+        document.getElementById('btn-oversikt').classList.add('active');
+        renderOversikt();
+    } else if (view === 'framtid') {
+        document.getElementById('view-framtid').classList.remove('hidden');
+        document.getElementById('btn-framtid').classList.add('active');
+    } else {
+        const dayMap = { 'mandag': 0, 'tisdag': 1, 'onsdag': 2, 'torsdag': 3, 'fredag': 4 };
+        activeDayIndex = dayMap[view];
+        document.getElementById('view-day-detail').classList.remove('hidden');
+        document.getElementById(`btn-${view}`).classList.add('active');
+        renderDayDetail();
+    }
+}
+
+function changeWeek(delta) {
+    currentWeek += delta;
+    if (currentWeek > 52) { currentWeek = 1; currentYear++; }
+    if (currentWeek < 1) { currentWeek = 52; currentYear--; }
+    refreshUI();
+}
+
+function changeWeekTo(w) {
+    currentWeek = w;
+    refreshUI();
+    changeView('oversikt');
+}
+
+function goToLesson(dayIdx, lessonId) {
+    const viewName = ['mandag', 'tisdag', 'onsdag', 'torsdag', 'fredag'][dayIdx];
+    activeLessonId = lessonId;
+    changeView(viewName);
+}
+
+function goToDayAndAdd(dayIdx) {
+    const viewName = ['mandag', 'tisdag', 'onsdag', 'torsdag', 'fredag'][dayIdx];
+    changeView(viewName);
+    setTimeout(() => addLessonPrompt(), 100);
+}
+
+/* ================================================
+   7. LESSON CRUD & SMARTBOARD HANDLERS
+   ================================================ */
+function saveDayNote(dayIdx, value) {
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    if (!plannerData[weekKey].dayNotes) plannerData[weekKey].dayNotes = ["", "", "", "", ""];
+    plannerData[weekKey].dayNotes[dayIdx] = value;
+    saveData(); // now async but fire-and-forget is fine
+}
+
+function toggleNotesModal() {
+    const modal = document.getElementById('lesson-notes-modal');
+    if (modal.classList.contains('hidden')) {
+        openNotesModal();
+    } else {
+        closeNotesModal();
+    }
+}
+
+function openNotesModal() {
+    if (!activeLessonId) return;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const lesson = (plannerData[weekKey] && plannerData[weekKey].lessons[activeDayIndex] || []).find(l => l.id === activeLessonId);
+    if (!lesson) return;
+    document.getElementById('notes-modal-lesson-name').innerText = lesson.subject + ' – ' + lesson.time;
+    document.getElementById('private-notes-textarea').value = lesson.privateNotes || '';
+    document.getElementById('lesson-notes-modal').classList.remove('hidden');
+    document.getElementById('private-notes-textarea').focus();
+}
+
+function closeNotesModal() {
+    savePrivateNotes();
+    document.getElementById('lesson-notes-modal').classList.add('hidden');
+}
+
+function handleNotesModalBackdrop(event) {
+    if (event.target === document.getElementById('lesson-notes-modal')) {
+        closeNotesModal();
+    }
+}
+
+function savePrivateNotes() {
+    if (!activeLessonId) return;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const lesson = (plannerData[weekKey] && plannerData[weekKey].lessons[activeDayIndex] || []).find(l => l.id === activeLessonId);
+    if (lesson) {
+        lesson.privateNotes = document.getElementById('private-notes-textarea').value;
+        saveData();
+        updateNotesButtonState(lesson);
+    }
+}
+
+function updateNotesButtonState(lesson) {
+    const notesBtn = document.getElementById('notes-btn');
+    if (!notesBtn) return;
+    if (lesson?.privateNotes?.trim()) {
+        notesBtn.classList.add('active');
+    } else {
+        notesBtn.classList.remove('active');
+    }
+}
+
+function addLessonPrompt() {
+    const subject = prompt("Vad är det för ämne?");
+    if (!subject) return;
+    const timeInput = prompt("Vilken tid? (t.ex. 08:00 eller 14:10-14:40)", "08:00");
+    if (!timeInput) return;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const newLesson = { id: Date.now(), subject: subject, time: timeInput, plan: "" };
+    plannerData[weekKey].lessons[activeDayIndex].push(newLesson);
+    sortPlannerData(weekKey, activeDayIndex);
+    propagateToFutureWeeks(weekKey);
+    saveData();
+    activeLessonId = newLesson.id;
+    renderDayDetail();
+}
+
+function deleteLesson(id, e) {
+    e.stopPropagation();
+    if (!confirm("Radera lektion?")) return;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    plannerData[weekKey].lessons[activeDayIndex] = plannerData[weekKey].lessons[activeDayIndex].filter(l => l.id !== id);
+    if (activeLessonId === id) activeLessonId = null;
+    propagateToFutureWeeks(weekKey);
+    saveData();
+    renderDayDetail();
+}
+
+function handleInput() {
+    if (!activeLessonId) return;
+    const planContent = document.getElementById('sb-plan').innerHTML;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const lesson = (plannerData[weekKey].lessons[activeDayIndex] || []).find(l => l.id === activeLessonId);
+    if (lesson) {
+        lesson.plan = planContent;
+        if (plannerData[weekKey]._copiedFrom) delete plannerData[weekKey]._copiedFrom;
+        saveData();
+        const isPlanned = checkIsPlanned(planContent);
+        const activeBtn = document.querySelector(`[data-id="${activeLessonId}"]`);
+        if (activeBtn) {
+            const title = activeBtn.querySelector('.lesson-subject-title');
+            if (isPlanned) title.classList.add('is-planned');
+            else title.classList.remove('is-planned');
+        }
+    }
+}
+
+function handleInputRight() {
+    if (!activeLessonId) return;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const lesson = (plannerData[weekKey].lessons[activeDayIndex] || []).find(l => l.id === activeLessonId);
+    if (lesson) {
+        lesson.planRight = document.getElementById('sb-plan-right').innerHTML;
+        saveData();
+    }
+}
+
+function handlePaste(e) {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let index in items) {
+        const item = items[index];
+        if (item.kind === 'file' && item.type.includes('image')) {
+            e.preventDefault();
+            insertImageBlobInto(item.getAsFile(), document.getElementById('sb-plan'), handleInput);
+        }
+    }
+}
+
+function handlePasteRight(e) {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let index in items) {
+        const item = items[index];
+        if (item.kind === 'file' && item.type.includes('image')) {
+            e.preventDefault();
+            insertImageBlobInto(item.getAsFile(), document.getElementById('sb-plan-right'), handleInputRight);
+        }
+    }
+}
+
+function insertImageFromFile(input) {
+    if (!input.files || !input.files[0]) return;
+    const target = (document.activeElement && document.activeElement.id === 'sb-plan-right')
+        ? document.getElementById('sb-plan-right')
+        : document.getElementById('sb-plan');
+    const cb = (target.id === 'sb-plan-right') ? handleInputRight : handleInput;
+    insertImageBlobInto(input.files[0], target, cb);
+    input.value = '';
+}
+
+function insertImageBlobInto(blob, container, onSave) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'img-wrapper';
+        wrapper.style.left = '20px';
+        wrapper.style.top = '20px';
+        wrapper.style.width = '300px';
+        const img = document.createElement('img');
+        img.src = event.target.result;
+        img.style.width = '100%';
+        const controls = document.createElement('div');
+        controls.className = 'img-controls';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'img-ctrl-btn img-delete-btn';
+        delBtn.innerHTML = '×';
+        delBtn.title = 'Ta bort';
+        delBtn.onmousedown = (e) => { e.stopPropagation(); wrapper.remove(); onSave(); };
+        controls.appendChild(delBtn);
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'img-resize-handle';
+        wrapper.appendChild(img);
+        wrapper.appendChild(controls);
+        wrapper.appendChild(resizeHandle);
+        wrapper.contentEditable = false;
+        container.appendChild(wrapper);
+        makeDraggable(wrapper, resizeHandle, onSave);
+        onSave();
+    };
+    reader.readAsDataURL(blob);
+}
+
+function makeDraggable(wrapper, resizeHandle, onSave) {
+    onSave = onSave || handleInput;
+    wrapper.addEventListener('mousedown', function(e) {
+        if (e.target === resizeHandle) return;
+        e.preventDefault();
+        const startX = e.clientX - wrapper.offsetLeft;
+        const startY = e.clientY - wrapper.offsetTop;
+        function onMove(e) {
+            wrapper.style.left = (e.clientX - startX) + 'px';
+            wrapper.style.top = (e.clientY - startY) + 'px';
+        }
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            onSave();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+    resizeHandle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startW = wrapper.offsetWidth;
+        function onMove(e) {
+            wrapper.style.width = Math.max(80, startW + (e.clientX - startX)) + 'px';
+        }
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            onSave();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+}
+
+/* ================================================
+   8. SPLIT VIEW & FORMATTING
+   ================================================ */
+function toggleSplit() {
+    isSplitActive = !isSplitActive;
+    setSplit(isSplitActive);
+    if (activeLessonId) {
+        const weekKey = `${currentYear}-W${currentWeek}`;
+        const lesson = (plannerData[weekKey].lessons[activeDayIndex] || []).find(l => l.id === activeLessonId);
+        if (lesson) { lesson.split = isSplitActive; saveData(); }
+    }
+}
+
+function setSplit(on) {
+    isSplitActive = on;
+    const divider = document.getElementById('sb-plan-divider');
+    const right = document.getElementById('sb-plan-right');
+    const btn = document.getElementById('split-btn');
+    if (on) {
+        divider.classList.remove('hidden');
+        right.classList.remove('hidden');
+        btn && btn.classList.add('active');
+    } else {
+        divider.classList.add('hidden');
+        right.classList.add('hidden');
+        btn && btn.classList.remove('active');
+    }
+}
+
+// Update bold/italic button states
+document.addEventListener('selectionchange', () => {
+    const boldBtn = document.getElementById('bold-btn');
+    const italicBtn = document.getElementById('italic-btn');
+    if (boldBtn) boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+    if (italicBtn) italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+});
+
+function updateFontSize(val) {
+    const el = document.getElementById('sb-plan');
+    if (el) el.style.fontSize = val + 'px';
+}
+
+/* ================================================
+   9. TOOLS
+   ================================================ */
+function openTool(type) {
+    if (activeView === 'oversikt' || activeView === 'framtid') changeView('mandag');
+    const container = document.getElementById('active-tool-container');
+    const content = document.getElementById('tool-content');
+    const title = document.getElementById('tool-title');
+    container.classList.remove('hidden-tool');
+    if (type === 'multiplication') { title.innerText = "Multiplikation"; content.innerHTML = generateMultiTable(); }
+    else if (type === 'fractions') { title.innerText = "Bråkplank"; content.innerHTML = generateFractionBoard(); }
+    else if (type === 'timer') { title.innerText = "Time Timer"; content.innerHTML = generateTimerUI(); setTimeout(initTimerFace, 10); resetTimer(); }
+    else if (type === 'stopwatch') { title.innerText = "Stoppur"; content.innerHTML = generateStopwatchUI(); resetStopwatch(); }
+}
+
+function closeTool() {
+    document.getElementById('active-tool-container').classList.add('hidden-tool');
+    clearInterval(timerInterval);
+    timerInterval = null;
+    clearInterval(stopwatchInterval);
+    stopwatchInterval = null;
+    stopwatchRunning = false;
+}
+
+function generateMultiTable() {
+    let html = '<table class="w-full text-center border-collapse text-[10px]"><tr class="bg-gray-100"><td class="p-2 border font-bold">×</td>';
+    for (let i = 1; i <= 10; i++) html += `<td class="p-2 border font-bold bg-gray-50">${i}</td>`;
+    html += '</tr>';
+    for (let i = 1; i <= 10; i++) {
+        html += `<tr><td class="bg-gray-50 p-2 border font-bold">${i}</td>`;
+        for (let j = 1; j <= 10; j++) html += `<td class="p-2 border hover:bg-[#a6857e]/10 cursor-default">${i * j}</td>`;
+        html += '</tr>';
+    }
+    return html + '</table>';
+}
+
+function generateFractionBoard() {
+    const colors = ['bg-blue-400', 'bg-red-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400', 'bg-orange-400', 'bg-teal-400', 'bg-pink-400'];
+    let html = '<div class="space-y-2 py-2">';
+    for (let i = 1; i <= 8; i++) {
+        html += `<div class="flex h-9 w-full rounded overflow-hidden shadow-sm border border-gray-100">`;
+        for (let j = 0; j < i; j++) html += `<div class="flex-1 ${colors[i - 1]} border-r border-white/20 last:border-0 flex items-center justify-center text-white text-[9px] font-bold">1/${i}</div>`;
+        html += `</div>`;
+    }
+    return html + '</div>';
+}
+
+function generateTimerUI() {
+    return `<div class="text-center p-2"><div class="timer-container mb-4"><div class="timer-face" id="timer-face"><div id="timer-marks-container"></div><svg class="timer-svg" viewBox="0 0 100 100"><circle class="timer-circle-bg" cx="50" cy="50" r="45" /><path id="timer-path" class="timer-path" d="" /></svg><div class="timer-center-dot"></div></div></div><div id="timer-display" class="text-3xl font-bold mb-4 font-mono text-gray-700">10:00</div><div class="flex flex-col gap-3"><div class="flex items-center justify-center gap-2"><input type="number" id="timer-input" value="10" min="1" max="60" class="w-16 border p-1 rounded text-center font-bold" onchange="resetTimer()"><span class="text-xs font-bold text-gray-400 uppercase">Min</span></div><div class="flex gap-2 justify-center"><button onclick="startTimer()" id="timer-start-btn" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#8da089]">Start</button><button onclick="pauseTimer()" class="bg-gray-400 text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-500">Paus</button><button onclick="resetTimer()" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#92756e]">Nollställ</button></div></div></div>`;
+}
+
+function initTimerFace() {
+    const container = document.getElementById('timer-marks-container');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i < 60; i++) {
+        const mark = document.createElement('div');
+        mark.className = 'timer-mark' + (i % 5 === 0 ? ' major' : '');
+        mark.style.transform = `translateX(-50%) rotate(${i * 6}deg)`;
+        container.appendChild(mark);
+    }
+}
+
+function startTimer() {
+    if (timerInterval) return;
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.innerText = "Tickar...";
+    timerInterval = setInterval(() => {
+        if (timerSeconds > 0) { timerSeconds--; updateTimerDisplay(); }
+        else { clearInterval(timerInterval); timerInterval = null; if (btn) btn.innerText = "Klar!"; }
+    }, 1000);
+}
+
+function pauseTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.innerText = "Start";
+}
+
+function resetTimer() {
+    pauseTimer();
+    const mins = parseInt(document.getElementById('timer-input').value) || 10;
+    timerMaxSeconds = mins * 60;
+    timerSeconds = timerMaxSeconds;
+    updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+    const mins = Math.floor(timerSeconds / 60);
+    const secs = timerSeconds % 60;
+    const display = document.getElementById('timer-display');
+    const path = document.getElementById('timer-path');
+    if (display) display.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (path) {
+        const angle = (timerSeconds / 3600) * 360;
+        const start = polarToCartesian(50, 50, 45, angle);
+        const end = polarToCartesian(50, 50, 45, 0);
+        const largeArcFlag = angle <= 180 ? "0" : "1";
+        path.setAttribute("d", ["M", 50, 50, "L", start.x, start.y, "A", 45, 45, 0, largeArcFlag, 0, end.x, end.y, "Z"].join(" "));
+    }
+}
+
+function polarToCartesian(cx, cy, r, angleDeg) {
+    const rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function generateStopwatchUI() {
+    return `<div class="text-center p-2" style="min-width:220px">
+        <div id="sw-display" style="font-family:'Courier New',Courier,monospace;font-size:2.8rem;font-weight:bold;letter-spacing:0.08em;color:#374151;background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:14px 20px;margin-bottom:18px;display:inline-block;min-width:210px;">00:00</div>
+        <div class="flex gap-2 justify-center">
+            <button id="sw-start-btn" onclick="startStopwatch()" style="background:#16a34a;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15);transition:opacity 0.15s">Start</button>
+            <button onclick="pauseStopwatch()" style="background:#dc2626;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15)">Paus</button>
+            <button onclick="resetStopwatch()" style="background:#a6857e;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15)">Nollställ</button>
+        </div>
+    </div>`;
+}
+
+function startStopwatch() {
+    if (stopwatchRunning) return;
+    stopwatchRunning = true;
+    const btn = document.getElementById('sw-start-btn');
+    if (btn) { btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
+    const startTime = Date.now() - stopwatchSeconds * 1000;
+    stopwatchInterval = setInterval(() => {
+        stopwatchSeconds = Math.floor((Date.now() - startTime) / 1000);
+        updateStopwatchDisplay();
+    }, 1000);
+}
+
+function pauseStopwatch() {
+    if (!stopwatchRunning) return;
+    stopwatchRunning = false;
+    clearInterval(stopwatchInterval);
+    stopwatchInterval = null;
+    const btn = document.getElementById('sw-start-btn');
+    if (btn) { btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+}
+
+function resetStopwatch() {
+    pauseStopwatch();
+    stopwatchSeconds = 0;
+    updateStopwatchDisplay();
+}
+
+function updateStopwatchDisplay() {
+    const display = document.getElementById('sw-display');
+    if (!display) return;
+    const mins = Math.floor(stopwatchSeconds / 60);
+    const secs = stopwatchSeconds % 60;
+    display.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+}
+
+/* ================================================
+   10. CLOCK & FULLSCREEN
+   ================================================ */
+function updateClock() {
+    const now = new Date();
+    const display = document.getElementById('digital-clock');
+    if (display) display.innerText = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+}
+
+function toggleSidebar() {
+    const container = document.getElementById('view-day-detail');
+    container.classList.toggle('sidebar-hidden');
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+}
+
+/* ================================================
+   11. BOTTOM TOOLBAR TOGGLE (🛠️)
+   ================================================ */
+let toolbarVisible = false;
+
+function toggleBottomToolbar() {
+    toolbarVisible = !toolbarVisible;
+    const toolbar = document.getElementById('bottom-toolbar');
+    const btn = document.getElementById('toolbar-toggle-btn');
+    
+    if (toolbarVisible) {
+        toolbar.style.display = 'flex';
+        btn.innerHTML = '✕';
+        btn.style.bottom = '92px';
+        btn.style.transform = 'rotate(90deg)';
+        btn.classList.add('!bg-[#a6857e]', '!text-white', '!border-[#a6857e]');
+    } else {
+        toolbar.style.display = 'none';
+        btn.innerHTML = '🛠️';
+        btn.style.bottom = '24px';
+        btn.style.transform = 'rotate(0deg)';
+        btn.classList.remove('!bg-[#a6857e]', '!text-white', '!border-[#a6857e]');
+    }
+}
+
+/* ================================================
+   12. INITIALIZATION
+   ================================================ */
+window.onload = () => {
+    migrateData();
+    updateClock();
+    setInterval(updateClock, 1000);
+    renderFutureWeeks();
+    refreshUI();
+    updateFontSize(32);
+
+    // Verktygslådan startar dold
+    document.getElementById('bottom-toolbar').style.display = 'none';
+
+    updateFileStatus('localStorage (ingen diskfil kopplad)');
+
+    // Close lesson-notes modal on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('lesson-notes-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeNotesModal();
+            }
+        }
+    });
+};
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.error('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
