@@ -10,7 +10,7 @@ import {
 import { insertImageFromFile } from './images.js';
 import { toggleNotesModal, closeNotesModal, handleNotesModalBackdrop, savePrivateNotes } from './notes.js';
 import {
-    openTool, closeTool,
+    openTool, closeTool, closeFloatingTool,
     startTimer, pauseTimer, resetTimer,
     startStopwatch, pauseStopwatch, resetStopwatch
 } from './tools.js';
@@ -42,6 +42,7 @@ window.handleNotesModalBackdrop = handleNotesModalBackdrop;
 window.savePrivateNotes    = savePrivateNotes;
 window.openTool            = openTool;
 window.closeTool           = closeTool;
+window.closeFloatingTool   = closeFloatingTool;
 window.startTimer          = startTimer;
 window.pauseTimer          = pauseTimer;
 window.resetTimer          = resetTimer;
