@@ -1,0 +1,177 @@
+import {
+    timerInterval, timerSeconds, timerMaxSeconds,
+    stopwatchInterval, stopwatchSeconds, stopwatchRunning,
+    setTimerInterval, setTimerSeconds, setTimerMaxSeconds,
+    setStopwatchInterval, setStopwatchSeconds, setStopwatchRunning,
+    activeView
+} from './state.js';
+import { changeView } from './navigation.js';
+
+export function openTool(type) {
+    if (activeView === 'oversikt' || activeView === 'framtid') changeView('mandag');
+    const container = document.getElementById('active-tool-container');
+    const content   = document.getElementById('tool-content');
+    const title     = document.getElementById('tool-title');
+    container.classList.remove('hidden-tool');
+    if (type === 'multiplication') {
+        title.innerText = 'Multiplikation';
+        content.innerHTML = generateMultiTable();
+    } else if (type === 'fractions') {
+        title.innerText = 'Bråkplank';
+        content.innerHTML = generateFractionBoard();
+    } else if (type === 'timer') {
+        title.innerText = 'Time Timer';
+        content.innerHTML = generateTimerUI();
+        setTimeout(initTimerFace, 10);
+        resetTimer();
+    } else if (type === 'stopwatch') {
+        title.innerText = 'Stoppur';
+        content.innerHTML = generateStopwatchUI();
+        resetStopwatch();
+    }
+}
+
+export function closeTool() {
+    document.getElementById('active-tool-container').classList.add('hidden-tool');
+    clearInterval(timerInterval);
+    setTimerInterval(null);
+    clearInterval(stopwatchInterval);
+    setStopwatchInterval(null);
+    setStopwatchRunning(false);
+}
+
+function generateMultiTable() {
+    let html = '<table class="w-full text-center border-collapse text-[10px]"><tr class="bg-gray-100"><td class="p-2 border font-bold">×</td>';
+    for (let i = 1; i <= 10; i++) html += `<td class="p-2 border font-bold bg-gray-50">${i}</td>`;
+    html += '</tr>';
+    for (let i = 1; i <= 10; i++) {
+        html += `<tr><td class="bg-gray-50 p-2 border font-bold">${i}</td>`;
+        for (let j = 1; j <= 10; j++) html += `<td class="p-2 border hover:bg-[#a6857e]/10 cursor-default">${i * j}</td>`;
+        html += '</tr>';
+    }
+    return html + '</table>';
+}
+
+function generateFractionBoard() {
+    const colors = ['bg-blue-400', 'bg-red-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400', 'bg-orange-400', 'bg-teal-400', 'bg-pink-400'];
+    let html = '<div class="space-y-2 py-2">';
+    for (let i = 1; i <= 8; i++) {
+        html += `<div class="flex h-9 w-full rounded overflow-hidden shadow-sm border border-gray-100">`;
+        for (let j = 0; j < i; j++) html += `<div class="flex-1 ${colors[i - 1]} border-r border-white/20 last:border-0 flex items-center justify-center text-white text-[9px] font-bold">1/${i}</div>`;
+        html += '</div>';
+    }
+    return html + '</div>';
+}
+
+function generateTimerUI() {
+    return `<div class="text-center p-2"><div class="timer-container mb-4"><div class="timer-face" id="timer-face"><div id="timer-marks-container"></div><svg class="timer-svg" viewBox="0 0 100 100"><circle class="timer-circle-bg" cx="50" cy="50" r="45" /><path id="timer-path" class="timer-path" d="" /></svg><div class="timer-center-dot"></div></div></div><div id="timer-display" class="text-3xl font-bold mb-4 font-mono text-gray-700">10:00</div><div class="flex flex-col gap-3"><div class="flex items-center justify-center gap-2"><input type="number" id="timer-input" value="10" min="1" max="60" class="w-16 border p-1 rounded text-center font-bold" onchange="window.resetTimer()"><span class="text-xs font-bold text-gray-400 uppercase">Min</span></div><div class="flex gap-2 justify-center"><button onclick="window.startTimer()" id="timer-start-btn" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#8da089]">Start</button><button onclick="window.pauseTimer()" class="bg-gray-400 text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-500">Paus</button><button onclick="window.resetTimer()" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-[#92756e]">Nollställ</button></div></div></div>`;
+}
+
+function initTimerFace() {
+    const container = document.getElementById('timer-marks-container');
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i < 60; i++) {
+        const mark = document.createElement('div');
+        mark.className = 'timer-mark' + (i % 5 === 0 ? ' major' : '');
+        mark.style.transform = `translateX(-50%) rotate(${i * 6}deg)`;
+        container.appendChild(mark);
+    }
+}
+
+export function startTimer() {
+    if (timerInterval) return;
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.innerText = 'Tickar...';
+    setTimerInterval(setInterval(() => {
+        if (timerSeconds > 0) {
+            setTimerSeconds(timerSeconds - 1);
+            updateTimerDisplay();
+        } else {
+            clearInterval(timerInterval);
+            setTimerInterval(null);
+            if (btn) btn.innerText = 'Klar!';
+        }
+    }, 1000));
+}
+
+export function pauseTimer() {
+    clearInterval(timerInterval);
+    setTimerInterval(null);
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.innerText = 'Start';
+}
+
+export function resetTimer() {
+    pauseTimer();
+    const mins = parseInt(document.getElementById('timer-input')?.value) || 10;
+    setTimerMaxSeconds(mins * 60);
+    setTimerSeconds(timerMaxSeconds);
+    updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+    const mins = Math.floor(timerSeconds / 60);
+    const secs = timerSeconds % 60;
+    const display = document.getElementById('timer-display');
+    const path    = document.getElementById('timer-path');
+    if (display) display.innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (path) {
+        const angle = (timerSeconds / timerMaxSeconds) * 360;
+        const start = polarToCartesian(50, 50, 45, angle);
+        const end   = polarToCartesian(50, 50, 45, 0);
+        const largeArcFlag = angle <= 180 ? '0' : '1';
+        path.setAttribute('d', ['M', 50, 50, 'L', start.x, start.y, 'A', 45, 45, 0, largeArcFlag, 0, end.x, end.y, 'Z'].join(' '));
+    }
+}
+
+function polarToCartesian(cx, cy, r, angleDeg) {
+    const rad = (angleDeg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function generateStopwatchUI() {
+    return `<div class="text-center p-2" style="min-width:220px">
+        <div id="sw-display" style="font-family:'Courier New',Courier,monospace;font-size:2.8rem;font-weight:bold;letter-spacing:0.08em;color:#374151;background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:14px 20px;margin-bottom:18px;display:inline-block;min-width:210px;">00:00</div>
+        <div class="flex gap-2 justify-center">
+            <button id="sw-start-btn" onclick="window.startStopwatch()" style="background:#16a34a;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15);transition:opacity 0.15s">Start</button>
+            <button onclick="window.pauseStopwatch()" style="background:#dc2626;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15)">Paus</button>
+            <button onclick="window.resetStopwatch()" style="background:#a6857e;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15)">Nollställ</button>
+        </div>
+    </div>`;
+}
+
+export function startStopwatch() {
+    if (stopwatchRunning) return;
+    setStopwatchRunning(true);
+    const btn = document.getElementById('sw-start-btn');
+    if (btn) { btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
+    const startTime = Date.now() - stopwatchSeconds * 1000;
+    setStopwatchInterval(setInterval(() => {
+        setStopwatchSeconds(Math.floor((Date.now() - startTime) / 1000));
+        updateStopwatchDisplay();
+    }, 1000));
+}
+
+export function pauseStopwatch() {
+    if (!stopwatchRunning) return;
+    setStopwatchRunning(false);
+    clearInterval(stopwatchInterval);
+    setStopwatchInterval(null);
+    const btn = document.getElementById('sw-start-btn');
+    if (btn) { btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+}
+
+export function resetStopwatch() {
+    pauseStopwatch();
+    setStopwatchSeconds(0);
+    updateStopwatchDisplay();
+}
+
+function updateStopwatchDisplay() {
+    const display = document.getElementById('sw-display');
+    if (!display) return;
+    const mins = Math.floor(stopwatchSeconds / 60);
+    const secs = stopwatchSeconds % 60;
+    display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}

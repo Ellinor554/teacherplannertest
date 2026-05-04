@@ -1,7 +1,21 @@
-const CACHE_NAME = 'larplanering-v1';
+const CACHE_NAME = 'larplanering-v2';
 const URLS_TO_CACHE = [
   '.',
   './index.html',
+  './css/styles.css',
+  './js/app.js',
+  './js/config.js',
+  './js/state.js',
+  './js/utils.js',
+  './js/data.js',
+  './js/persistence.js',
+  './js/images.js',
+  './js/notes.js',
+  './js/render.js',
+  './js/navigation.js',
+  './js/lessons.js',
+  './js/tools.js',
+  './js/ui.js',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap'
 ];
