@@ -6,8 +6,28 @@ import {
 } from './state.js';
 import { makeDraggable } from './draggable.js';
 
+// Diagonal grip-pattern lines (long diagonal + short corner diagonal) for resize cue icon.
+const RESIZE_ICON_LINES = [[9,1,1,9], [9,5,5,9]];
+
 // Counter used to cascade new tool windows so they don't overlap exactly.
 let _toolOffset = 0;
+
+// SVG icon used as a visual resize-handle cue in every tool's bottom-right corner.
+function createResizeHintIcon() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 10 10');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.5');
+    svg.setAttribute('stroke-linecap', 'round');
+    RESIZE_ICON_LINES.forEach(([x1,y1,x2,y2]) => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+        svg.appendChild(line);
+    });
+    return svg;
+}
 
 const MIN_TOOL_WIDTH   = 320; // px – minimum assumed tool width for positioning
 const MIN_TOOL_HEIGHT  = 200; // px – minimum assumed tool height for positioning
@@ -60,7 +80,14 @@ export function openTool(type) {
         body.innerHTML = generateFractionBoard();
     } else if (type === 'timer') {
         body.innerHTML = generateTimerUI();
-        tool._cleanup = () => { clearInterval(timerInterval); setTimerInterval(null); };
+        tool._cleanup = () => {
+            clearInterval(timerInterval);
+            setTimerInterval(null);
+            if (tool._resizeObserver) {
+                tool._resizeObserver.disconnect();
+                tool._resizeObserver = null;
+            }
+        };
     } else if (type === 'stopwatch') {
         body.innerHTML = generateStopwatchUI();
         tool._cleanup = () => {
@@ -70,16 +97,43 @@ export function openTool(type) {
         };
     }
 
+    // Resize hint icon (visual cue for the native resize handle)
+    const resizeHint = document.createElement('div');
+    resizeHint.className = 'floating-tool-resize-hint';
+    resizeHint.setAttribute('aria-hidden', 'true');
+    resizeHint.appendChild(createResizeHintIcon());
+
     tool.appendChild(header);
     tool.appendChild(body);
+    tool.appendChild(resizeHint);
     document.body.appendChild(tool);
 
     makeDraggable(tool, header);
 
     // Initialise timer-specific UI after DOM insertion
     if (type === 'timer') {
-        setTimeout(initTimerFace, 10);
-        resetTimer();
+        setTimeout(() => {
+            initTimerFace();
+            resetTimer();
+            // ResizeObserver keeps tick-mark transform-origins in sync with face size
+            const face = tool.querySelector('.timer-face');
+            if (face) {
+                // Cache marks once (they are created by initTimerFace above and never replaced).
+                const marks = Array.from(face.querySelectorAll('.timer-mark'));
+                if (marks.length > 0 && typeof ResizeObserver !== 'undefined') {
+                    let rafId = null;
+                    const ro = new ResizeObserver(() => {
+                        if (rafId) cancelAnimationFrame(rafId);
+                        rafId = requestAnimationFrame(() => {
+                            const half = face.offsetHeight / 2;
+                            marks.forEach(m => { m.style.transformOrigin = `50% ${half}px`; });
+                        });
+                    });
+                    ro.observe(face);
+                    tool._resizeObserver = ro;
+                }
+            }
+        }, 10);
     } else if (type === 'stopwatch') {
         resetStopwatch();
     }
@@ -130,12 +184,15 @@ function generateTimerUI() {
 }
 
 function initTimerFace() {
+    const face = document.querySelector('.timer-face');
     const container = document.getElementById('timer-marks-container');
-    if (!container) return;
+    if (!container || !face) return;
     container.innerHTML = '';
+    const half = face.offsetHeight / 2 || 85;
     for (let i = 0; i < 60; i++) {
         const mark = document.createElement('div');
         mark.className = 'timer-mark' + (i % 5 === 0 ? ' major' : '');
+        mark.style.transformOrigin = `50% ${half}px`;
         mark.style.transform = `translateX(-50%) rotate(${i * 6}deg)`;
         container.appendChild(mark);
     }
