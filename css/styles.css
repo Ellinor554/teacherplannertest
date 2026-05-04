@@ -47,6 +47,35 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
+/* Floating tool windows */
+.floating-tool {
+    position: fixed;
+    z-index: 500;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10);
+    min-width: 260px;
+    max-width: 90vw;
+    border: 1px solid #d1cfcb;
+}
+.floating-tool-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f7f6f5;
+    border-bottom: 1px solid #e5e3df;
+    cursor: grab;
+    user-select: none;
+    border-radius: 12px 12px 0 0;
+}
+.floating-tool-header:active { cursor: grabbing; }
+.floating-tool-body {
+    padding: 14px;
+    overflow: auto;
+    max-height: 70vh;
+}
+
 /* Sidebar toggle */
 #lesson-sidebar {
     transition: width 0.35s ease, opacity 0.35s ease, padding-right 0.35s ease;

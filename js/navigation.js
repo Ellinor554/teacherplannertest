@@ -16,6 +16,13 @@ export function refreshUI() {
 
 export function changeView(view) {
     setActiveView(view);
+
+    // Remove all open floating tools (running timers/stopwatches are cleaned up via _cleanup)
+    document.querySelectorAll('.floating-tool').forEach(el => {
+        if (typeof el._cleanup === 'function') el._cleanup();
+        el.remove();
+    });
+
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('view-oversikt').classList.add('hidden');
     document.getElementById('view-framtid').classList.add('hidden');

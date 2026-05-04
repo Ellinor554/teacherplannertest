@@ -2,37 +2,99 @@ import {
     timerInterval, timerSeconds, timerMaxSeconds,
     stopwatchInterval, stopwatchSeconds, stopwatchRunning,
     setTimerInterval, setTimerSeconds, setTimerMaxSeconds,
-    setStopwatchInterval, setStopwatchSeconds, setStopwatchRunning,
-    activeView
+    setStopwatchInterval, setStopwatchSeconds, setStopwatchRunning
 } from './state.js';
-import { changeView } from './navigation.js';
+import { makeDraggable } from './draggable.js';
+
+// Counter used to cascade new tool windows so they don't overlap exactly.
+let _toolOffset = 0;
+
+const MIN_TOOL_WIDTH   = 320; // px – minimum assumed tool width for positioning
+const MIN_TOOL_HEIGHT  = 200; // px – minimum assumed tool height for positioning
+const MAX_CASCADE_STEPS = 8;  // number of cascade steps before cycling back
+
+const TOOL_LABELS = {
+    multiplication: 'Multiplikation',
+    fractions:      'Bråkplank',
+    timer:          'Time Timer',
+    stopwatch:      'Stoppur'
+};
 
 export function openTool(type) {
-    if (activeView === 'oversikt' || activeView === 'framtid') changeView('mandag');
-    const container = document.getElementById('active-tool-container');
-    const content   = document.getElementById('tool-content');
-    const title     = document.getElementById('tool-title');
-    container.classList.remove('hidden-tool');
+    const label = TOOL_LABELS[type] || type;
+
+    // Build the floating container
+    const tool = document.createElement('div');
+    tool.className = 'floating-tool';
+    tool.dataset.toolType = type;
+
+    // Position with a cascade offset
+    const offset = (_toolOffset % MAX_CASCADE_STEPS) * 30;
+    tool.style.left = Math.min(100 + offset, window.innerWidth  - MIN_TOOL_WIDTH)  + 'px';
+    tool.style.top  = Math.min(100 + offset, window.innerHeight - MIN_TOOL_HEIGHT) + 'px';
+    _toolOffset++;
+
+    // Header (drag handle + title + close button) – built via DOM to avoid XSS
+    const header = document.createElement('div');
+    header.className = 'floating-tool-header';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'font-bold text-[#a6857e] uppercase text-xs tracking-widest';
+    titleSpan.textContent = label;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'text-gray-400 hover:text-black font-bold text-xl leading-none ml-4';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => closeFloatingTool(closeBtn));
+
+    header.appendChild(titleSpan);
+    header.appendChild(closeBtn);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'floating-tool-body';
+
     if (type === 'multiplication') {
-        title.innerText = 'Multiplikation';
-        content.innerHTML = generateMultiTable();
+        body.innerHTML = generateMultiTable();
     } else if (type === 'fractions') {
-        title.innerText = 'Bråkplank';
-        content.innerHTML = generateFractionBoard();
+        body.innerHTML = generateFractionBoard();
     } else if (type === 'timer') {
-        title.innerText = 'Time Timer';
-        content.innerHTML = generateTimerUI();
+        body.innerHTML = generateTimerUI();
+        tool._cleanup = () => { clearInterval(timerInterval); setTimerInterval(null); };
+    } else if (type === 'stopwatch') {
+        body.innerHTML = generateStopwatchUI();
+        tool._cleanup = () => {
+            clearInterval(stopwatchInterval);
+            setStopwatchInterval(null);
+            setStopwatchRunning(false);
+        };
+    }
+
+    tool.appendChild(header);
+    tool.appendChild(body);
+    document.body.appendChild(tool);
+
+    makeDraggable(tool, header);
+
+    // Initialise timer-specific UI after DOM insertion
+    if (type === 'timer') {
         setTimeout(initTimerFace, 10);
         resetTimer();
     } else if (type === 'stopwatch') {
-        title.innerText = 'Stoppur';
-        content.innerHTML = generateStopwatchUI();
         resetStopwatch();
     }
 }
 
+/** Close a specific floating tool, cleaning up any running intervals. */
+export function closeFloatingTool(el) {
+    const tool = el.closest('.floating-tool');
+    if (!tool) return;
+    if (typeof tool._cleanup === 'function') tool._cleanup();
+    tool.remove();
+}
+
+/** Legacy close – clears shared timer/stopwatch state (kept for compatibility). */
 export function closeTool() {
-    document.getElementById('active-tool-container').classList.add('hidden-tool');
     clearInterval(timerInterval);
     setTimerInterval(null);
     clearInterval(stopwatchInterval);
