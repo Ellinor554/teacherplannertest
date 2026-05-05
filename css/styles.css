@@ -433,6 +433,74 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     border-right: none;
 }
 
+/* ── Settings Menu ───────────────────────────────────────────────────────── */
+.settings-wrapper {
+    position: relative;
+}
+.settings-menu {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    right: 0;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    min-width: 248px;
+    padding: 8px;
+    z-index: 600;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.settings-menu.hidden {
+    display: none;
+}
+.settings-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #555;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+    min-height: 44px;
+    font-family: 'Inter', sans-serif;
+}
+.settings-item:hover {
+    background: rgba(166, 133, 126, 0.09);
+    color: #a6857e;
+}
+.settings-item svg {
+    flex-shrink: 0;
+    color: #c8b49a;
+    transition: color 0.12s;
+}
+.settings-item:hover svg {
+    color: #a6857e;
+}
+.settings-status {
+    padding: 6px 14px 2px;
+    font-size: 0.68rem;
+    font-family: monospace;
+    color: #b0a99f;
+    letter-spacing: 0.03em;
+    line-height: 1.4;
+}
+.settings-divider {
+    height: 1px;
+    background: rgba(166, 133, 126, 0.13);
+    margin: 4px 8px;
+}
+
 /* ── Textruta ────────────────────────────────────────────────────────────── */
 .floating-tool-body.textbox-body {
     padding: 0;

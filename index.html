@@ -111,24 +111,53 @@
 
     <div class="flex-1"></div>
 
-    <div class="flex items-center gap-3 text-sm">
-        <button onclick="savePlannerAs()" 
-                class="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-5 py-2.5 rounded-2xl text-emerald-700 font-medium transition-all active:scale-95">
-            💾 Spara som fil...
+    <div class="settings-wrapper">
+        <button onclick="toggleSettingsMenu()" id="settings-btn" class="tool-cat-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="tool-cat-icon">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Inställningar
         </button>
-        <button onclick="openPlannerFile()" 
-                class="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-5 py-2.5 rounded-2xl text-amber-700 font-medium transition-all active:scale-95">
-            📂 Öppna fil...
-        </button>
 
-        <button onclick="downloadBackup()" 
-                class="px-4 py-2 text-xs text-gray-500 hover:text-gray-700 underline font-medium">Ladda ner backup</button>
-
-        <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="importBackup(event)">
-        <button onclick="document.getElementById('import-file-input').click()" 
-                class="px-4 py-2 text-xs text-gray-500 hover:text-gray-700 underline font-medium">Importera backup</button>
-
-        <div id="file-status" class="ml-3 text-[10px] font-mono text-gray-400 tracking-tight">localStorage (ingen diskfil kopplad)</div>
+        <div id="settings-menu" class="settings-menu hidden">
+            <div id="file-status" class="settings-status">localStorage (ingen diskfil kopplad)</div>
+            <div class="settings-divider"></div>
+            <button onclick="savePlannerAs(); toggleSettingsMenu()" class="settings-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Spara lektionsplanering...
+            </button>
+            <button onclick="openPlannerFile(); toggleSettingsMenu()" class="settings-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                Öppna sparad fil...
+            </button>
+            <div class="settings-divider"></div>
+            <button onclick="downloadBackup(); toggleSettingsMenu()" class="settings-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <polyline points="9 15 12 18 15 15"/>
+                </svg>
+                Ladda ner backup
+            </button>
+            <input type="file" id="import-file-input" accept=".json" class="hidden" onchange="importBackup(event)">
+            <button onclick="triggerImportBackup()" class="settings-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="12" x2="12" y2="18"/>
+                    <polyline points="9 15 12 12 15 15"/>
+                </svg>
+                Importera backup
+            </button>
+        </div>
     </div>
 </div>
 <button id="toolbar-toggle-btn" 

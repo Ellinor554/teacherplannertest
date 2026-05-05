@@ -17,7 +17,7 @@ import {
 } from './tools.js';
 import {
     updateClock, toggleSidebar, toggleFullscreen,
-    toggleBottomToolbar, updateFontSize, toggleSplit
+    toggleBottomToolbar, updateFontSize, toggleSplit, toggleSettingsMenu
 } from './ui.js';
 import {
     initTodo, toggleTodoPanel, closeTodoPanel,
@@ -59,6 +59,11 @@ window.toggleFullscreen    = toggleFullscreen;
 window.toggleBottomToolbar = toggleBottomToolbar;
 window.updateFontSize      = updateFontSize;
 window.toggleSplit         = toggleSplit;
+window.toggleSettingsMenu  = toggleSettingsMenu;
+window.triggerImportBackup = () => {
+    document.getElementById('import-file-input').click();
+    toggleSettingsMenu();
+};
 window.savePlannerAs       = savePlannerAs;
 window.openPlannerFile     = () => openPlannerFile(refreshUI);
 window.downloadBackup      = downloadBackup;
@@ -95,7 +100,25 @@ window.onload = () => {
             if (modal && !modal.classList.contains('hidden')) {
                 closeNotesModal();
             }
+            // Close settings menu
+            const settingsMenu = document.getElementById('settings-menu');
+            const settingsBtn  = document.getElementById('settings-btn');
+            if (settingsMenu && !settingsMenu.classList.contains('hidden')) {
+                settingsMenu.classList.add('hidden');
+                if (settingsBtn) settingsBtn.classList.remove('active');
+            }
             closeTodoPanel();
+        }
+    });
+
+    // Close settings menu when clicking outside
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('settings-menu');
+        const btn  = document.getElementById('settings-btn');
+        if (menu && !menu.classList.contains('hidden') &&
+            !menu.contains(e.target) && btn && !btn.contains(e.target)) {
+            menu.classList.add('hidden');
+            btn.classList.remove('active');
         }
     });
 
