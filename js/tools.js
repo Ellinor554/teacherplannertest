@@ -43,6 +43,7 @@ export const TOOL_MENU = [
         tools: [
             { type: 'timer',     icon: '⏱️', label: 'Time Timer' },
             { type: 'stopwatch', icon: '🕐', label: 'Stoppur' },
+            { type: 'textbox',   icon: '📝', label: 'Textruta' },
         ]
     },
     {
@@ -223,6 +224,37 @@ export function openTool(type) {
                 tool._resizeObserver = null;
             }
         };
+    } else if (type === 'textbox') {
+        body.classList.add('textbox-body');
+
+        const sliderRow = document.createElement('div');
+        sliderRow.className = 'textbox-slider-row';
+
+        const sliderLabel = document.createElement('label');
+        sliderLabel.className = 'textbox-slider-label';
+        sliderLabel.textContent = 'Textstorlek:';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '16';
+        slider.max = '120';
+        slider.value = '20';
+        slider.className = 'textbox-font-slider';
+
+        sliderRow.appendChild(sliderLabel);
+        sliderRow.appendChild(slider);
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'textbox-textarea';
+        textarea.placeholder = 'Skriv något här...';
+        textarea.style.fontSize = slider.value + 'px';
+
+        slider.addEventListener('input', () => {
+            textarea.style.fontSize = slider.value + 'px';
+        });
+
+        body.appendChild(sliderRow);
+        body.appendChild(textarea);
     }
 
     // Resize hint icon (visual cue for the native resize handle)
