@@ -36,7 +36,8 @@ export function initTodo() {
         const panel = document.getElementById('todo-panel');
         const btn   = document.getElementById('todo-toggle-btn');
         if (!panel || !panel.classList.contains('todo-panel-open')) return;
-        if (!panel.contains(e.target) && btn && !btn.contains(e.target)) {
+        const path = e.composedPath();
+        if (!path.includes(panel) && !(btn && path.includes(btn))) {
             closeTodoPanel();
         }
     });
