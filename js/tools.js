@@ -33,15 +33,143 @@ const MIN_TOOL_WIDTH   = 320; // px – minimum assumed tool width for positioni
 const MIN_TOOL_HEIGHT  = 200; // px – minimum assumed tool height for positioning
 const MAX_CASCADE_STEPS = 8;  // number of cascade steps before cycling back
 
-const TOOL_LABELS = {
-    multiplication: 'Multiplikation',
-    fractions:      'Bråkplank',
-    timer:          'Time Timer',
-    stopwatch:      'Stoppur'
-};
+// ── Tool menu structure ──────────────────────────────────────────────────────
+// To add a new tool: add one entry to the `tools` array in the right category.
+// The tool rendering logic still needs a matching branch in openTool() below.
+export const TOOL_MENU = [
+    {
+        category: 'Allmänt',
+        icon: '⚙️',
+        tools: [
+            { type: 'timer',     icon: '⏱️', label: 'Time Timer' },
+            { type: 'stopwatch', icon: '🕐', label: 'Stoppur' },
+        ]
+    },
+    {
+        category: 'Matematik',
+        icon: '🔢',
+        tools: [
+            { type: 'multiplication', icon: '×',  label: 'Multiplikation' },
+            { type: 'fractions',      icon: '📏', label: 'Bråkplank' },
+        ]
+    },
+    {
+        category: 'Svenska',
+        icon: '📖',
+        tools: [
+            // Add Swedish-language tools here
+        ]
+    },
+];
+
+// Derive a flat label map from TOOL_MENU for quick lookup inside openTool()
+function _getLabel(type) {
+    for (const cat of TOOL_MENU) {
+        const tool = cat.tools.find(t => t.type === type);
+        if (tool) return tool.label;
+    }
+    return type;
+}
+
+// ── Tool Launcher UI ─────────────────────────────────────────────────────────
+
+let _launcherListenerAdded = false;
+
+/** Build category buttons + pop-up panels inside `container`. */
+export function buildToolLauncher(container) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    TOOL_MENU.forEach(({ category, icon, tools }) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tool-cat-wrapper';
+
+        // Category button
+        const btn = document.createElement('button');
+        btn.className = 'tool-cat-btn';
+        btn.setAttribute('aria-haspopup', 'true');
+        btn.setAttribute('aria-expanded', 'false');
+
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'tool-cat-icon';
+        iconSpan.textContent = icon;
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'tool-cat-label';
+        labelSpan.textContent = category;
+
+        btn.appendChild(iconSpan);
+        btn.appendChild(labelSpan);
+
+        // Pop-up panel
+        const popup = document.createElement('div');
+        popup.className = 'tool-launcher-popup';
+        popup.setAttribute('role', 'menu');
+        popup.hidden = true;
+
+        if (tools.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'tool-launcher-empty';
+            empty.textContent = 'Inga verktyg ännu';
+            popup.appendChild(empty);
+        } else {
+            tools.forEach(({ type, icon: tIcon, label }) => {
+                const item = document.createElement('button');
+                item.className = 'tool-launcher-item';
+                item.setAttribute('role', 'menuitem');
+
+                const itemIcon = document.createElement('span');
+                itemIcon.className = 'tool-launcher-item-icon';
+                itemIcon.textContent = tIcon;
+
+                const itemLabel = document.createElement('span');
+                itemLabel.textContent = label;
+
+                item.appendChild(itemIcon);
+                item.appendChild(itemLabel);
+                item.addEventListener('click', () => {
+                    _closeAllPopups();
+                    openTool(type);
+                });
+                popup.appendChild(item);
+            });
+        }
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = !popup.hidden;
+            _closeAllPopups();
+            if (!isOpen) {
+                popup.hidden = false;
+                btn.setAttribute('aria-expanded', 'true');
+                btn.classList.add('active');
+            }
+        });
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(popup);
+        container.appendChild(wrapper);
+    });
+
+    // Global click closes all open popups (added only once)
+    if (!_launcherListenerAdded) {
+        document.addEventListener('click', _closeAllPopups);
+        _launcherListenerAdded = true;
+    }
+}
+
+function _closeAllPopups() {
+    document.querySelectorAll('.tool-launcher-popup').forEach(p => { p.hidden = true; });
+    document.querySelectorAll('.tool-cat-btn').forEach(b => {
+        b.setAttribute('aria-expanded', 'false');
+        b.classList.remove('active');
+    });
+}
+
+// ── openTool ─────────────────────────────────────────────────────────────────
 
 export function openTool(type) {
-    const label = TOOL_LABELS[type] || type;
+    const label = _getLabel(type);
 
     // Build the floating container
     const tool = document.createElement('div');

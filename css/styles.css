@@ -118,3 +118,86 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     opacity: 1;
     pointer-events: auto;
 }
+
+/* ── Tool Launcher (categorised toolbar) ──────────────────────────────────── */
+.tool-cat-wrapper {
+    position: relative;
+}
+.tool-cat-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid #e5e3df;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #666;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    white-space: nowrap;
+    /* Touch-friendly minimum tap area */
+    min-height: 44px;
+}
+.tool-cat-btn:hover,
+.tool-cat-btn.active {
+    border-color: #a6857e;
+    color: #a6857e;
+    background: #fdf8f7;
+}
+.tool-cat-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+.tool-launcher-popup {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    background: white;
+    border: 1px solid #d1cfcb;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
+    min-width: 210px;
+    padding: 6px;
+    z-index: 600;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tool-launcher-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #444;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+    /* Touch-friendly minimum tap area */
+    min-height: 44px;
+}
+.tool-launcher-item:hover {
+    background: #fdf0ee;
+    color: #a6857e;
+}
+.tool-launcher-item-icon {
+    font-size: 1.15rem;
+    min-width: 26px;
+    text-align: center;
+    line-height: 1;
+}
+.tool-launcher-empty {
+    padding: 12px 16px;
+    color: #aaa;
+    font-size: 0.8rem;
+    text-align: center;
+    font-style: italic;
+    margin: 0;
+}

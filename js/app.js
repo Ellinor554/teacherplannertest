@@ -12,7 +12,8 @@ import { toggleNotesModal, closeNotesModal, handleNotesModalBackdrop, savePrivat
 import {
     openTool, closeTool, closeFloatingTool,
     startTimer, pauseTimer, resetTimer,
-    startStopwatch, pauseStopwatch, resetStopwatch
+    startStopwatch, pauseStopwatch, resetStopwatch,
+    buildToolLauncher
 } from './tools.js';
 import {
     updateClock, toggleSidebar, toggleFullscreen,
@@ -71,6 +72,9 @@ window.onload = () => {
 
     // Verktygslådan startar dold
     document.getElementById('bottom-toolbar').style.display = 'none';
+
+    // Build the categorised Tool Launcher
+    buildToolLauncher(document.getElementById('tool-launcher-categories'));
 
     updateFileStatus('localStorage (ingen diskfil kopplad)');
 
