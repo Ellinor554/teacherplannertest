@@ -73,7 +73,10 @@ export function closeTodoPanel() {
 }
 
 function addTodoItem(text) {
-    todos.unshift({ id: Date.now().toString(), text, done: false });
+    const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    todos.unshift({ id, text, done: false });
     saveTodos();
     renderTodoList();
 }
@@ -128,7 +131,9 @@ function populateList(listEl, items, isDone, emptyMessage) {
         listEl.appendChild(empty);
         return;
     }
-    items.forEach(item => listEl.appendChild(buildTodoItem(item, isDone)));
+    const fragment = document.createDocumentFragment();
+    items.forEach(item => fragment.appendChild(buildTodoItem(item, isDone)));
+    listEl.appendChild(fragment);
 }
 
 function buildTodoItem(item, isDone) {
