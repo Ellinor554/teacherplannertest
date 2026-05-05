@@ -201,3 +201,42 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     font-style: italic;
     margin: 0;
 }
+
+/* ── Dynamic scaling for floating tool content ─────────────────────────────── */
+
+/* Fraction wall: fills the body as a flex column so rows share height equally */
+.floating-tool-body.fraction-wall-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.fraction-wall {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 6px;
+    padding: 6px 0;
+    overflow: hidden;
+}
+.fraction-wall-row {
+    flex: 1;
+    min-height: 1.5rem;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+}
+.fraction-wall-cell {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    /* Scale text with the container's inline size (body has container-type: inline-size) */
+    font-size: clamp(7px, 2cqi, 14px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+.fraction-wall-cell:last-child {
+    border-right: none;
+}

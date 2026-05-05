@@ -201,6 +201,7 @@ export function openTool(type) {
         body.innerHTML = generateMultiTable();
     } else if (type === 'fractions') {
         body.innerHTML = generateFractionBoard();
+        body.classList.add('fraction-wall-body');
     } else if (type === 'timer') {
         body.innerHTML = generateTimerUI();
         tool._cleanup = () => {
@@ -217,6 +218,10 @@ export function openTool(type) {
             clearInterval(stopwatchInterval);
             setStopwatchInterval(null);
             setStopwatchRunning(false);
+            if (tool._resizeObserver) {
+                tool._resizeObserver.disconnect();
+                tool._resizeObserver = null;
+            }
         };
     }
 
@@ -238,27 +243,45 @@ export function openTool(type) {
         setTimeout(() => {
             initTimerFace();
             resetTimer();
-            // ResizeObserver keeps tick-mark transform-origins in sync with face size
+            // ResizeObserver keeps tick-mark transform-origins and display font in sync with tool size
             const face = tool.querySelector('.timer-face');
-            if (face) {
+            const display = tool.querySelector('#timer-display');
+            if (face && typeof ResizeObserver !== 'undefined') {
                 // Cache marks once (they are created by initTimerFace above and never replaced).
                 const marks = Array.from(face.querySelectorAll('.timer-mark'));
-                if (marks.length > 0 && typeof ResizeObserver !== 'undefined') {
-                    let rafId = null;
-                    const ro = new ResizeObserver(() => {
-                        if (rafId) cancelAnimationFrame(rafId);
-                        rafId = requestAnimationFrame(() => {
-                            const half = face.offsetHeight / 2;
-                            marks.forEach(m => { m.style.transformOrigin = `50% ${half}px`; });
-                        });
+                let rafId = null;
+                const ro = new ResizeObserver(() => {
+                    if (rafId) cancelAnimationFrame(rafId);
+                    rafId = requestAnimationFrame(() => {
+                        const half = face.offsetHeight / 2;
+                        marks.forEach(m => { m.style.transformOrigin = `50% ${half}px`; });
+                        if (display) {
+                            display.style.fontSize = Math.max(14, body.offsetWidth * 0.1) + 'px';
+                        }
                     });
-                    ro.observe(face);
-                    tool._resizeObserver = ro;
-                }
+                });
+                ro.observe(body);
+                tool._resizeObserver = ro;
             }
         }, 10);
     } else if (type === 'stopwatch') {
         resetStopwatch();
+        setTimeout(() => {
+            const display = tool.querySelector('#sw-display');
+            if (display && typeof ResizeObserver !== 'undefined') {
+                const updateFont = () => {
+                    display.style.fontSize = Math.max(16, body.offsetWidth * 0.15) + 'px';
+                };
+                let rafId = null;
+                const ro = new ResizeObserver(() => {
+                    if (rafId) cancelAnimationFrame(rafId);
+                    rafId = requestAnimationFrame(updateFont);
+                });
+                ro.observe(body);
+                tool._resizeObserver = ro;
+                updateFont();
+            }
+        }, 10);
     }
 }
 
@@ -293,10 +316,12 @@ function generateMultiTable() {
 
 function generateFractionBoard() {
     const colors = ['bg-blue-400', 'bg-red-400', 'bg-green-400', 'bg-yellow-400', 'bg-purple-400', 'bg-orange-400', 'bg-teal-400', 'bg-pink-400'];
-    let html = '<div class="space-y-2 py-2">';
+    let html = '<div class="fraction-wall">';
     for (let i = 1; i <= 8; i++) {
-        html += `<div class="flex h-9 w-full rounded overflow-hidden shadow-sm border border-gray-100">`;
-        for (let j = 0; j < i; j++) html += `<div class="flex-1 ${colors[i - 1]} border-r border-white/20 last:border-0 flex items-center justify-center text-white text-[9px] font-bold">1/${i}</div>`;
+        html += `<div class="fraction-wall-row">`;
+        for (let j = 0; j < i; j++) {
+            html += `<div class="fraction-wall-cell ${colors[i - 1]}">1/${i}</div>`;
+        }
         html += '</div>';
     }
     return html + '</div>';
@@ -381,8 +406,8 @@ function polarToCartesian(cx, cy, r, angleDeg) {
 }
 
 function generateStopwatchUI() {
-    return `<div class="text-center p-2" style="min-width:220px">
-        <div id="sw-display" style="font-family:'Courier New',Courier,monospace;font-size:2.8rem;font-weight:bold;letter-spacing:0.08em;color:#374151;background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:14px 20px;margin-bottom:18px;display:inline-block;min-width:210px;">00:00</div>
+    return `<div class="text-center p-2">
+        <div id="sw-display" style="font-family:'Courier New',Courier,monospace;font-weight:bold;letter-spacing:0.08em;color:#374151;background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:0.3em 0.5em;margin-bottom:18px;display:block;">00:00</div>
         <div class="flex gap-2 justify-center">
             <button id="sw-start-btn" onclick="window.startStopwatch()" style="background:#16a34a;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15);transition:opacity 0.15s">Start</button>
             <button onclick="window.pauseStopwatch()" style="background:#dc2626;color:white;padding:8px 20px;border-radius:8px;font-size:0.75rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15)">Paus</button>
