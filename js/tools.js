@@ -227,34 +227,18 @@ export function openTool(type) {
     } else if (type === 'textbox') {
         body.classList.add('textbox-body');
 
-        const sliderRow = document.createElement('div');
-        sliderRow.className = 'textbox-slider-row';
-
-        const sliderLabel = document.createElement('label');
-        sliderLabel.className = 'textbox-slider-label';
-        sliderLabel.textContent = 'Textstorlek:';
-
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = '16';
-        slider.max = '120';
-        slider.value = '20';
-        slider.className = 'textbox-font-slider';
-
-        sliderRow.appendChild(sliderLabel);
-        sliderRow.appendChild(slider);
-
         const textarea = document.createElement('textarea');
         textarea.className = 'textbox-textarea';
         textarea.placeholder = 'Skriv något här...';
-        textarea.style.fontSize = slider.value + 'px';
 
-        slider.addEventListener('input', () => {
-            textarea.style.fontSize = slider.value + 'px';
-        });
-
-        body.appendChild(sliderRow);
         body.appendChild(textarea);
+
+        tool._cleanup = () => {
+            if (tool._resizeObserver) {
+                tool._resizeObserver.disconnect();
+                tool._resizeObserver = null;
+            }
+        };
     }
 
     // Resize hint icon (visual cue for the native resize handle)
@@ -314,6 +298,29 @@ export function openTool(type) {
                 updateFont();
             }
         }, 10);
+    } else if (type === 'textbox') {
+        const textarea = tool.querySelector('.textbox-textarea');
+        if (textarea && typeof ResizeObserver !== 'undefined') {
+            let rafId = null;
+            const updateFont = () => {
+                const w = body.offsetWidth;
+                const h = body.offsetHeight;
+                const base = Math.min(w / 10, h / 5);
+                // 4px tolerance to avoid triggering on sub-pixel rounding differences
+                const overflowing = textarea.scrollHeight > textarea.clientHeight + 4;
+                // Minimum 12px; shrink 15% when text overflows to keep more visible
+                textarea.style.fontSize = Math.max(12, overflowing ? base * 0.85 : base) + 'px';
+            };
+            const ro = new ResizeObserver(() => {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = requestAnimationFrame(updateFont);
+            });
+            ro.observe(body);
+            tool._resizeObserver = ro;
+            updateFont();
+            // Re-evaluate when text changes
+            textarea.addEventListener('input', updateFont);
+        }
     }
 }
 
