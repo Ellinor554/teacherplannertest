@@ -100,13 +100,7 @@ export function toggleCompletedSection() {
     if (arrow)   arrow.textContent = completedOpen ? '▲' : '▼';
 }
 
-function escapeHtml(str) {
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function renderTodoList() {
     const activeList    = document.getElementById('todo-active-list');
@@ -117,30 +111,81 @@ function renderTodoList() {
     const active = todos.filter(t => !t.done);
     const done   = todos.filter(t => t.done);
 
-    activeList.innerHTML = active.length
-        ? active.map(item => todoItemHtml(item, false)).join('')
-        : '<li class="todo-empty">Inga aktiva uppgifter</li>';
-
-    completedList.innerHTML = done.length
-        ? done.map(item => todoItemHtml(item, true)).join('')
-        : '<li class="todo-empty">Inga avklarade uppgifter</li>';
+    populateList(activeList, active, false, 'Inga aktiva uppgifter');
+    populateList(completedList, done, true, 'Inga avklarade uppgifter');
 
     if (countBadge) {
         countBadge.textContent = done.length > 0 ? ` (${done.length})` : '';
     }
 }
 
-function todoItemHtml(item, isDone) {
-    const checkboxInner = isDone
-        ? `<circle cx="8" cy="8" r="7" fill="#c8b49a" stroke="#c8b49a" stroke-width="1.5"/>
-           <path d="M5 8l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
-        : `<circle cx="8" cy="8" r="7" stroke="#c8b49a" stroke-width="1.5"/>`;
+function populateList(listEl, items, isDone, emptyMessage) {
+    listEl.textContent = '';
+    if (items.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'todo-empty';
+        empty.textContent = emptyMessage;
+        listEl.appendChild(empty);
+        return;
+    }
+    items.forEach(item => listEl.appendChild(buildTodoItem(item, isDone)));
+}
 
-    return `<li class="todo-item${isDone ? ' todo-item-done' : ''}" data-id="${item.id}">
-        <button class="todo-checkbox" onclick="toggleTodoDone('${item.id}')" aria-label="${isDone ? 'Markera som aktiv' : 'Markera som klar'}">
-            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">${checkboxInner}</svg>
-        </button>
-        <span class="todo-text${isDone ? ' todo-text-done' : ''}" onclick="toggleTodoDone('${item.id}')">${escapeHtml(item.text)}</span>
-        <button class="todo-delete" onclick="deleteTodoItem('${item.id}')" aria-label="Ta bort">×</button>
-    </li>`;
+function buildTodoItem(item, isDone) {
+    const li = document.createElement('li');
+    li.className = isDone ? 'todo-item todo-item-done' : 'todo-item';
+    li.dataset.id = item.id;
+
+    // Circular checkbox button with inline SVG
+    const checkBtn = document.createElement('button');
+    checkBtn.className = 'todo-checkbox';
+    checkBtn.setAttribute('aria-label', isDone ? 'Markera som aktiv' : 'Markera som klar');
+    checkBtn.appendChild(buildCheckboxSvg(isDone));
+    checkBtn.addEventListener('click', () => toggleTodoDone(item.id));
+
+    // Text span
+    const textSpan = document.createElement('span');
+    textSpan.className = isDone ? 'todo-text todo-text-done' : 'todo-text';
+    textSpan.textContent = item.text;
+    textSpan.addEventListener('click', () => toggleTodoDone(item.id));
+
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.className = 'todo-delete';
+    delBtn.setAttribute('aria-label', 'Ta bort');
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => deleteTodoItem(item.id));
+
+    li.appendChild(checkBtn);
+    li.appendChild(textSpan);
+    li.appendChild(delBtn);
+    return li;
+}
+
+function buildCheckboxSvg(isDone) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('fill', 'none');
+
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('cx', '8');
+    circle.setAttribute('cy', '8');
+    circle.setAttribute('r', '7');
+    circle.setAttribute('stroke', '#c8b49a');
+    circle.setAttribute('stroke-width', '1.5');
+
+    if (isDone) {
+        circle.setAttribute('fill', '#c8b49a');
+        const check = document.createElementNS(SVG_NS, 'path');
+        check.setAttribute('d', 'M5 8l2 2 4-4');
+        check.setAttribute('stroke', 'white');
+        check.setAttribute('stroke-width', '1.5');
+        check.setAttribute('stroke-linecap', 'round');
+        check.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(circle);
+        svg.appendChild(check);
+    } else {
+        svg.appendChild(circle);
+    }
+    return svg;
 }
