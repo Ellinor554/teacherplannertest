@@ -240,3 +240,46 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 .fraction-wall-cell:last-child {
     border-right: none;
 }
+
+/* ── Textruta ────────────────────────────────────────────────────────────── */
+.floating-tool-body.textbox-body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.textbox-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #e5e3df;
+    flex-shrink: 0;
+    background: #f7f6f5;
+}
+.textbox-slider-label {
+    font-size: 10px;
+    color: #a6857e;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+}
+.textbox-font-slider {
+    flex: 1;
+    cursor: pointer;
+    accent-color: #a6857e;
+}
+.textbox-textarea {
+    flex: 1 1 auto;
+    width: 100%;
+    resize: none;
+    border: none;
+    outline: none;
+    padding: 14px;
+    font-family: inherit;
+    background: transparent;
+    line-height: 1.5;
+    box-sizing: border-box;
+    color: #374151;
+}
