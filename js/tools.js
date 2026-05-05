@@ -90,15 +90,10 @@ export function buildToolLauncher(container) {
         btn.setAttribute('aria-haspopup', 'true');
         btn.setAttribute('aria-expanded', 'false');
 
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'tool-cat-icon';
-        iconSpan.textContent = icon;
-
         const labelSpan = document.createElement('span');
         labelSpan.className = 'tool-cat-label';
         labelSpan.textContent = category;
 
-        btn.appendChild(iconSpan);
         btn.appendChild(labelSpan);
 
         // Pop-up panel
