@@ -43,6 +43,198 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 .private-notes-area { width: 100%; min-height: 200px; resize: vertical; border: 1px solid #e5e3df; border-radius: 8px; padding: 12px; font-size: 13px; outline: none; font-family: 'Inter', sans-serif; color: #444; background: #fdfcfb; }
 .private-notes-area:focus { border-color: #a6857e; background: white; }
 
+/* ── Todo slide-out panel ────────────────────────────────────────────────── */
+#todo-panel {
+    position: fixed;
+    top: 0;
+    left: -400px;
+    width: 380px;
+    height: 100vh;
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.05);
+    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#todo-panel.todo-panel-open {
+    left: 0;
+}
+.todo-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 24px 16px;
+    border-bottom: 1px solid rgba(200, 180, 154, 0.2);
+    flex-shrink: 0;
+}
+.todo-panel-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #a69085;
+    margin: 0;
+}
+.todo-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #b0a99f;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+}
+.todo-close-btn:hover {
+    color: #a6857e;
+    background: rgba(166, 133, 126, 0.08);
+}
+.todo-panel-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    padding: 20px 24px;
+    gap: 16px;
+}
+.todo-input {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid #e5e3df;
+    background: transparent;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    color: #444;
+    padding: 8px 2px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.todo-input::placeholder {
+    color: #c0bcb8;
+    font-style: italic;
+}
+.todo-input:focus {
+    border-bottom-color: #a6857e;
+}
+.todo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    flex-shrink: 1;
+}
+#todo-active-list {
+    max-height: 45vh;
+}
+#todo-completed-list {
+    max-height: 25vh;
+}
+.todo-list.hidden {
+    display: none;
+}
+.todo-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    transition: background 0.12s;
+}
+.todo-item:hover {
+    background: rgba(166, 133, 126, 0.06);
+}
+.todo-item:hover .todo-delete {
+    opacity: 1;
+}
+.todo-item-done {
+    opacity: 0.55;
+}
+.todo-checkbox {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+.todo-checkbox:hover {
+    transform: scale(1.15);
+}
+.todo-checkbox svg {
+    width: 18px;
+    height: 18px;
+}
+.todo-text {
+    flex: 1;
+    font-size: 0.88rem;
+    color: #444;
+    cursor: pointer;
+    line-height: 1.4;
+    word-break: break-word;
+    user-select: none;
+}
+.todo-text-done {
+    text-decoration: line-through;
+    color: #a0a0a0;
+}
+.todo-delete {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #ccc;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.12s, color 0.12s;
+    flex-shrink: 0;
+}
+.todo-delete:hover {
+    color: #e57373;
+}
+.todo-completed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    border-top: 1px solid #e5e3df;
+    padding: 10px 6px 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #b0a99f;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: color 0.15s;
+}
+.todo-completed-header:hover {
+    color: #a6857e;
+}
+.todo-empty {
+    padding: 10px 6px;
+    font-size: 0.8rem;
+    color: #c0bcb8;
+    font-style: italic;
+    list-style: none;
+}
+
 #toolbar-toggle-btn {
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
