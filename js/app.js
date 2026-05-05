@@ -19,6 +19,10 @@ import {
     updateClock, toggleSidebar, toggleFullscreen,
     toggleBottomToolbar, updateFontSize, toggleSplit
 } from './ui.js';
+import {
+    initTodo, toggleTodoPanel, closeTodoPanel,
+    toggleTodoDone, deleteTodoItem, toggleCompletedSection
+} from './todo.js';
 
 // Inject handleInput callbacks into render.js to avoid circular imports
 setInputCallbacks(handleInput, handleInputRight);
@@ -59,6 +63,11 @@ window.savePlannerAs       = savePlannerAs;
 window.openPlannerFile     = () => openPlannerFile(refreshUI);
 window.downloadBackup      = downloadBackup;
 window.importBackup        = (e) => importBackup(e, refreshUI);
+window.toggleTodoPanel     = toggleTodoPanel;
+window.closeTodoPanel      = closeTodoPanel;
+window.toggleTodoDone      = toggleTodoDone;
+window.deleteTodoItem      = deleteTodoItem;
+window.toggleCompletedSection = toggleCompletedSection;
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 window.onload = () => {
@@ -69,6 +78,7 @@ window.onload = () => {
     renderFutureWeeks();
     refreshUI();
     updateFontSize(32);
+    initTodo();
 
     // Verktygslådan startar dold
     document.getElementById('bottom-toolbar').style.display = 'none';
@@ -85,6 +95,7 @@ window.onload = () => {
             if (modal && !modal.classList.contains('hidden')) {
                 closeNotesModal();
             }
+            closeTodoPanel();
         }
     });
 
