@@ -64,3 +64,11 @@ export function toggleSplit() {
         if (lesson) { lesson.split = next; saveData(); }
     }
 }
+
+export function toggleSettingsMenu() {
+    const menu = document.getElementById('settings-menu');
+    const btn  = document.getElementById('settings-btn');
+    if (!menu) return;
+    const isHidden = menu.classList.toggle('hidden');
+    if (btn) btn.classList.toggle('active', !isHidden);
+}
