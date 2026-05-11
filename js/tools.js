@@ -714,7 +714,7 @@ export function renderPresentationSettingsList() {
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.className = 'presentation-settings-name';
-        nameInput.value = item.name || 'Namnlös presentation';
+        nameInput.value = item.name ?? 'Namnlös presentation';
         nameInput.addEventListener('change', () => updateSavedPresentationName(item.id, nameInput.value));
 
         const openBtn = document.createElement('button');
@@ -723,7 +723,8 @@ export function renderPresentationSettingsList() {
         openBtn.title = 'Öppna presentation';
         openBtn.setAttribute('aria-label', 'Öppna presentation');
         openBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <title>Öppna</title>
                 <path d="M8 5v14l11-7z"></path>
             </svg>
         `;
@@ -735,7 +736,8 @@ export function renderPresentationSettingsList() {
         removeBtn.title = 'Ta bort presentation';
         removeBtn.setAttribute('aria-label', 'Ta bort presentation');
         removeBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <title>Ta bort</title>
                 <path d="M3 6h18"></path>
                 <path d="M8 6V4h8v2"></path>
                 <path d="M7 6l1 14h8l1-14"></path>
