@@ -17,6 +17,7 @@ const MAX_RECENT_PRESENTATIONS = 3;
 const PRESENTATION_RATIO = 16 / 9;
 const PRESENTATION_MIN_WIDTH = 420;
 const PRESENTATION_MIN_HEIGHT = Math.ceil(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
+const PRESENTATION_REFLOW_TRANSFORM = 'translateZ(0)';
 
 let presentationLibrary = [];
 let presentationRecent = [];
@@ -261,6 +262,10 @@ export function openTool(type, options = {}) {
             if (tool._resizeObserver) {
                 tool._resizeObserver.disconnect();
                 tool._resizeObserver = null;
+            }
+            if (tool._presentationResizeDebounce) {
+                clearTimeout(tool._presentationResizeDebounce);
+                tool._presentationResizeDebounce = null;
             }
         };
     }
@@ -633,7 +638,15 @@ function enforcePresentationAspectRatio(tool) {
     if (typeof ResizeObserver === 'undefined') return null;
     let adjusting = false;
 
-    const clampToViewport = (width, height) => {
+    const queueRefresh = () => {
+        if (tool._presentationResizeDebounce) clearTimeout(tool._presentationResizeDebounce);
+        tool._presentationResizeDebounce = setTimeout(() => {
+            tool._presentationResizeDebounce = null;
+            refreshPresentationLayout(tool);
+        }, 120);
+    };
+
+    const clampToViewport = (width) => {
         const maxWidth = Math.floor(window.innerWidth * 0.95);
         const maxHeight = Math.floor(window.innerHeight * 0.95);
         let w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(width, maxWidth));
@@ -650,10 +663,12 @@ function enforcePresentationAspectRatio(tool) {
         const width = tool.offsetWidth;
         const height = tool.offsetHeight;
         if (!width || !height) return;
+        queueRefresh();
 
         // Strict 16:9 based on width while user resizes.
+        // Strict lock: newHeight = newWidth * (9/16) == newWidth / (16/9).
         const targetHeight = Math.round(width / PRESENTATION_RATIO);
-        const { w, h } = clampToViewport(width, targetHeight);
+        const { w, h } = clampToViewport(width);
         if (w === width && h === height) return;
 
         adjusting = true;
@@ -671,6 +686,17 @@ function enforcePresentationAspectRatio(tool) {
     });
     ro.observe(tool);
     return ro;
+}
+
+function refreshPresentationLayout(tool) {
+    const frameWrap = tool.querySelector('.presentation-frame-wrap');
+    if (!frameWrap) return;
+    const prevTransform = frameWrap.style.transform;
+    frameWrap.style.transform = PRESENTATION_REFLOW_TRANSFORM;
+    // Workaround: Google Slides embed can stay visually "frozen" after drag-resize;
+    // a one-time reflow at drag end nudges the container and iframe to recompute layout.
+    void frameWrap.offsetWidth;
+    frameWrap.style.transform = prevTransform;
 }
 
 function getNextDefaultPresentationName() {
