@@ -51,6 +51,88 @@ const MIN_TOOL_WIDTH   = 320; // px – minimum assumed tool width for positioni
 const MIN_TOOL_HEIGHT  = 200; // px – minimum assumed tool height for positioning
 const MAX_CASCADE_STEPS = 8;  // number of cascade steps before cycling back
 
+// ── Lesson-tool persistence ──────────────────────────────────────────────────
+const LESSON_TOOLS_STORAGE_KEY = 'teacherplanner_lesson_tools';
+
+// Key for the lesson whose tools are currently displayed, e.g. "2_1234567890".
+let _activeToolsLessonKey = null;
+
+function _getLessonToolsData() {
+    try {
+        return JSON.parse(localStorage.getItem(LESSON_TOOLS_STORAGE_KEY)) || {};
+    } catch { return {}; }
+}
+
+function _setLessonToolsData(data) {
+    localStorage.setItem(LESSON_TOOLS_STORAGE_KEY, JSON.stringify(data));
+}
+
+/** Capture the current visual and content state of a floating tool element. */
+function _captureToolState(tool) {
+    const type = tool.dataset.toolType;
+    if (!type) return null;
+    const state = {
+        type,
+        left:   tool.style.left   || '',
+        top:    tool.style.top    || '',
+        width:  tool.style.width  || '',
+        height: tool.style.height || '',
+    };
+    if (type === 'textbox') {
+        const textarea = tool.querySelector('.textbox-textarea');
+        state.content = textarea ? textarea.value : '';
+    } else if (type === 'presentation') {
+        state.url = tool.dataset.activeUrl || '';
+    }
+    return state;
+}
+
+/** Scan current DOM for tools matching `key` and persist their state. */
+function _saveToolsForKey(key) {
+    if (!key) return;
+    const tools = [];
+    document.querySelectorAll(`.floating-tool[data-lesson-key]`).forEach(tool => {
+        if (tool.dataset.lessonKey !== key) return;
+        const state = _captureToolState(tool);
+        if (state) tools.push(state);
+    });
+    const all = _getLessonToolsData();
+    all[key] = tools;
+    _setLessonToolsData(all);
+}
+
+/**
+ * Save the currently displayed lesson's tools to localStorage, then remove
+ * them from the DOM. Call this before switching to a different lesson or view.
+ */
+export function saveAndClearLessonTools() {
+    if (_activeToolsLessonKey) {
+        _saveToolsForKey(_activeToolsLessonKey);
+    }
+    document.querySelectorAll('.floating-tool[data-lesson-key]').forEach(tool => {
+        if (typeof tool._cleanup === 'function') tool._cleanup();
+        tool.remove();
+    });
+    _activeToolsLessonKey = null;
+}
+
+/**
+ * Restore persisted tools for a lesson from localStorage.
+ * Call this after switching to the lesson's view.
+ */
+export function restoreLessonTools(dayIndex, lessonId) {
+    if (lessonId === null || lessonId === undefined) return;
+    const key = `${dayIndex}_${lessonId}`;
+    _activeToolsLessonKey = key;
+    const all = _getLessonToolsData();
+    const savedTools = all[key];
+    if (!Array.isArray(savedTools)) return;
+    savedTools.forEach(state => {
+        if (!state || !state.type) return;
+        openTool(state.type, { _lessonKey: key, _savedState: state });
+    });
+}
+
 // ── Tool menu structure ──────────────────────────────────────────────────────
 // To add a new tool: add one entry to the `tools` array in the right category.
 // The tool rendering logic still needs a matching branch in openTool() below.
@@ -185,17 +267,29 @@ function _closeAllPopups() {
 
 export function openTool(type, options = {}) {
     const label = _getLabel(type);
+    const savedState  = options._savedState  || null;
+    const lessonKey   = options._lessonKey   || _activeToolsLessonKey || null;
 
     // Build the floating container
     const tool = document.createElement('div');
     tool.className = 'floating-tool';
     tool.dataset.toolType = type;
+    if (lessonKey) tool.dataset.lessonKey = lessonKey;
 
-    // Position with a cascade offset
-    const offset = (_toolOffset % MAX_CASCADE_STEPS) * 30;
-    tool.style.left = Math.min(100 + offset, window.innerWidth  - MIN_TOOL_WIDTH)  + 'px';
-    tool.style.top  = Math.min(100 + offset, window.innerHeight - MIN_TOOL_HEIGHT) + 'px';
-    _toolOffset++;
+    // Position: use saved state when restoring, otherwise cascade offset
+    if (savedState?.left != null && savedState?.top != null) {
+        tool.style.left = savedState.left;
+        tool.style.top  = savedState.top;
+    } else {
+        const offset = (_toolOffset % MAX_CASCADE_STEPS) * 30;
+        tool.style.left = Math.min(100 + offset, window.innerWidth  - MIN_TOOL_WIDTH)  + 'px';
+        tool.style.top  = Math.min(100 + offset, window.innerHeight - MIN_TOOL_HEIGHT) + 'px';
+        _toolOffset++;
+    }
+
+    // Apply saved size (presentation size will be handled separately)
+    if (savedState?.width)  tool.style.width  = savedState.width;
+    if (savedState?.height) tool.style.height = savedState.height;
 
     // Header (drag handle + title + close button) – built via DOM to avoid XSS
     const header = document.createElement('div');
@@ -279,6 +373,7 @@ export function openTool(type, options = {}) {
         const textarea = document.createElement('textarea');
         textarea.className = 'textbox-textarea';
         textarea.placeholder = 'Skriv något här...';
+        if (savedState?.content) textarea.value = savedState.content;
 
         body.appendChild(textarea);
 
@@ -291,7 +386,7 @@ export function openTool(type, options = {}) {
     } else if (type === 'presentation') {
         body.classList.add('presentation-body');
         tool.classList.add('presentation-tool');
-        initPresentationTool(tool, body, options.launchUrl || null);
+        initPresentationTool(tool, body, options.launchUrl || savedState?.url || null);
         tool._cleanup = () => {
             if (tool._resizeObserver) {
                 tool._resizeObserver.disconnect();
@@ -327,7 +422,10 @@ export function openTool(type, options = {}) {
     tool.appendChild(resizeHint);
     document.body.appendChild(tool);
 
-    makeDraggable(tool, header);
+    makeDraggable(tool, header, () => {
+        const key = tool.dataset.lessonKey;
+        if (key) _saveToolsForKey(key);
+    });
 
     // Initialise timer-specific UI after DOM insertion
     if (type === 'timer') {
@@ -393,12 +491,19 @@ export function openTool(type, options = {}) {
             ro.observe(body);
             tool._resizeObserver = ro;
             updateFont();
-            // Re-evaluate when text changes
-            textarea.addEventListener('input', updateFont);
+            // Re-evaluate when text changes and auto-save lesson content
+            textarea.addEventListener('input', () => {
+                updateFont();
+                const key = tool.dataset.lessonKey;
+                if (key) _saveToolsForKey(key);
+            });
         }
     } else if (type === 'presentation') {
         setTimeout(() => {
-            applyPresentationPresetSize(tool, PRESENTATION_DEFAULT_PRESET);
+            // Only apply the default size preset when NOT restoring a saved state
+            if (savedState?.width == null) {
+                applyPresentationPresetSize(tool, PRESENTATION_DEFAULT_PRESET);
+            }
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
         }, 0);
     }
@@ -548,8 +653,12 @@ function initPresentationTool(tool, body, launchUrl) {
             return;
         }
         state.activeUrl = normalized.editUrl;
+        tool.dataset.activeUrl = normalized.editUrl;
         addPresentationToRecent(normalized.editUrl);
         renderActiveView(normalized);
+        // Auto-save the active URL for this lesson
+        const key = tool.dataset.lessonKey;
+        if (key) _saveToolsForKey(key);
     };
 
     const renderLibraryView = () => {
@@ -930,8 +1039,11 @@ export function initPresentationSettings() {
 export function closeFloatingTool(el) {
     const tool = el.closest('.floating-tool');
     if (!tool) return;
+    const lessonKey = tool.dataset.lessonKey || null;
     if (typeof tool._cleanup === 'function') tool._cleanup();
     tool.remove();
+    // Update persisted tool list for this lesson (removed tool is already gone from DOM)
+    if (lessonKey) _saveToolsForKey(lessonKey);
 }
 
 /** Legacy close – clears shared timer/stopwatch state (kept for compatibility). */

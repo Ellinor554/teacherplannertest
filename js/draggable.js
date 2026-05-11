@@ -2,8 +2,9 @@
  * Makes a floating element draggable by its handle.
  * @param {HTMLElement} floatingEl - The element to move.
  * @param {HTMLElement} handle     - The drag handle (usually the header).
+ * @param {Function|null} onDragEnd - Optional callback fired when the drag ends.
  */
-export function makeDraggable(floatingEl, handle) {
+export function makeDraggable(floatingEl, handle, onDragEnd = null) {
     handle.addEventListener('mousedown', (e) => {
         e.preventDefault();
         const startX   = e.clientX;
@@ -21,6 +22,7 @@ export function makeDraggable(floatingEl, handle) {
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup',   onUp);
+            if (onDragEnd) onDragEnd();
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup',   onUp);
