@@ -752,7 +752,8 @@ function refreshPresentationLayout(tool, refreshSource = false) {
     if (refreshSource) {
         const iframe = tool.querySelector('.presentation-iframe');
         if (iframe?.src) {
-            iframe.src = iframe.src;
+            const srcToReload = iframe.src;
+            iframe.src = srcToReload;
         }
     }
     const prevTransform = frameWrap.style.transform;
