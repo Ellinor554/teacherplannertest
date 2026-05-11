@@ -392,7 +392,7 @@ function loadPresentationData() {
                 const normalized = normalizePresentationUrl(item?.url || item?.editUrl || '');
                 if (!normalized) return null;
                 return {
-                    id: typeof item?.id === 'string' && item.id ? item.id : createPresentationId(),
+                    id: (typeof item?.id === 'string' ? item.id : '') || createPresentationId(),
                     name: (item?.name || '').trim() || 'Namnlös presentation',
                     url: normalized.editUrl,
                 };
@@ -688,7 +688,7 @@ function enforcePresentationAspectRatio(tool) {
 function getNextDefaultPresentationName() {
     let max = 0;
     presentationLibrary.forEach((item) => {
-        const match = String(item?.name || '').match(/^Presentation\s+(\d+)$/i);
+        const match = String(item?.name || '').match(/^Presentation\s+(\d+)$/);
         if (match) max = Math.max(max, Number(match[1]));
     });
     return `Presentation ${max + 1}`;
