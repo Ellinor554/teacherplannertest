@@ -284,7 +284,7 @@ function replaceMasterList(subjectKey, rawText) {
 
     const nextIds = new Set(nextItems.map((item) => item.id));
     const removedCount = currentItems.filter((item) => !nextIds.has(item.id)).length;
-    if (removedCount > 0 && !confirm(`Detta tar bort ${removedCount} punkt${removedCount === 1 ? '' : 'er'} från kursplanen och från alla områden. Fortsätta?`)) {
+    if (removedCount > 0 && !confirm(`Detta tar bort ${removedCount} punkt${removedCount === 1 ? '' : 'er'} från kursplanen och från alla områden. Fortsätt?`)) {
         return;
     }
 
