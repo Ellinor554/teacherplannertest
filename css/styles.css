@@ -287,7 +287,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     font-weight: 600;
 }
 .academic-area-panel {
-    width: 360px;
+    width: 400px;
     border-radius: 14px;
     background: #fffdf8;
     border: 1px solid #e7e2d8;
@@ -589,6 +589,344 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     font-style: italic;
     font-size: 12px;
     padding: 14px;
+}
+
+/* ── Panel header right group ──────────────────────────────────────────────── */
+.academic-panel-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.academic-overview-btn {
+    border: 1.5px solid #cdb9a7;
+    background: linear-gradient(135deg, #fdf6ee 0%, #f5ebe0 100%);
+    color: #8c6d55;
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+.academic-overview-btn:hover {
+    background: linear-gradient(135deg, #f5ebe0 0%, #ede0ce 100%);
+    border-color: #b8967e;
+    color: #7a5c46;
+}
+
+/* ── Grid card header (title + action button row) ───────────────────────────── */
+.academic-grid-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.academic-grid-card-header .academic-grid-title {
+    margin-bottom: 0;
+}
+.academic-connect-btn {
+    border: 1.5px solid #cdb9a7;
+    background: #faf5ee;
+    color: #8c6d55;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+.academic-connect-btn:hover {
+    background: #f0e6d6;
+    border-color: #b8967e;
+}
+
+/* ── Clean checklist (Centralt innehåll tile) ─────────────────────────────── */
+.academic-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+}
+.academic-checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #ebe4d8;
+    border-radius: 9px;
+    background: #fff;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.academic-checklist-item:hover {
+    background: var(--subject-light, #f5efe9);
+    border-color: var(--subject-color, #a6857e);
+}
+.academic-checklist-checkbox {
+    flex-shrink: 0;
+    margin-top: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--subject-color, #a6857e);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: transparent;
+    transition: background 0.15s, color 0.15s;
+}
+.academic-checklist-item.done .academic-checklist-checkbox {
+    background: var(--subject-color, #a6857e);
+    border-color: var(--subject-color, #a6857e);
+    color: #fff;
+}
+.academic-checklist-item.done .academic-checklist-checkbox::after {
+    content: '✓';
+}
+.academic-checklist-text {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #5a4f49;
+}
+.academic-checklist-item.done .academic-checklist-text {
+    text-decoration: line-through;
+    color: #a09185;
+}
+
+/* ── Curriculum Map fullscreen overlay ─────────────────────────────────────── */
+@keyframes cm-fade-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@keyframes cm-fade-out {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.97); }
+}
+.curriculum-map-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: rgba(240, 234, 224, 0.96);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    animation: cm-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+    overflow: hidden;
+}
+.curriculum-map-overlay.hidden {
+    display: none;
+}
+.curriculum-map-overlay.cm-closing {
+    animation: cm-fade-out 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+    pointer-events: none;
+}
+.curriculum-map-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 28px 16px;
+    background: rgba(255, 252, 247, 0.9);
+    border-bottom: 1px solid #e4ddd3;
+    flex-shrink: 0;
+}
+.curriculum-map-title-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.curriculum-map-subject-badge {
+    display: inline-block;
+    background: var(--subject-color, #a6857e);
+    color: #fff;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    width: fit-content;
+}
+.curriculum-map-title {
+    font-size: 2rem;
+    color: #6b5850;
+    line-height: 1.15;
+    margin: 0;
+}
+.curriculum-map-hint {
+    font-size: 12px;
+    color: #9d938a;
+    margin: 0;
+}
+.curriculum-map-close {
+    flex-shrink: 0;
+    border: 1.5px solid #cdb9a7;
+    background: #fff;
+    color: #8c6d55;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.curriculum-map-close:hover {
+    background: #f0e6d6;
+    border-color: #b8967e;
+}
+.curriculum-map-legend {
+    display: flex;
+    gap: 14px;
+    padding: 10px 28px;
+    background: rgba(255, 252, 247, 0.7);
+    border-bottom: 1px solid #ede7dd;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.curriculum-map-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #7a6f68;
+}
+.curriculum-map-legend-item::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.curriculum-map-legend-item.done::before {
+    background: var(--subject-color, #a6857e);
+}
+.curriculum-map-legend-item.covered::before {
+    background: var(--subject-light, #f5efe9);
+    border: 1.5px solid var(--subject-color, #a6857e);
+}
+.curriculum-map-legend-item.unused::before {
+    background: #f0eceb;
+    border: 1.5px solid #d8d0c8;
+}
+.curriculum-map-grid {
+    flex: 1;
+    min-height: 0;
+    padding: 20px 28px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    align-content: start;
+    overflow-y: auto;
+}
+.curriculum-map-card {
+    position: relative;
+    border: 1.5px solid #ddd6cc;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px 14px 12px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s, background 0.12s;
+}
+.curriculum-map-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+.curriculum-map-card.done {
+    background: var(--subject-color, #a6857e);
+    border-color: var(--subject-color, #a6857e);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+.curriculum-map-card.covered {
+    background: var(--subject-light, #f5efe9);
+    border-color: var(--subject-color, #a6857e);
+    opacity: 0.9;
+}
+.curriculum-map-card.unused {
+    opacity: 0.4;
+}
+.curriculum-map-card.selected {
+    background: var(--subject-light, #f5efe9);
+    border-color: var(--subject-color, #a6857e);
+    border-width: 2px;
+}
+.curriculum-map-card-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #4a3f3a;
+}
+.curriculum-map-card.done .curriculum-map-card-text {
+    color: #fff;
+}
+.curriculum-map-card-check {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 14px;
+    color: var(--subject-color, #a6857e);
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+.curriculum-map-card.selected .curriculum-map-card-check {
+    opacity: 1;
+}
+/* Tooltip */
+.curriculum-map-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(50, 40, 35, 0.92);
+    color: #fff;
+    border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 11px;
+    white-space: normal;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+    max-width: 260px;
+    text-align: center;
+}
+.curriculum-map-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(50, 40, 35, 0.92);
+}
+.curriculum-map-card.done:hover .curriculum-map-tooltip {
+    opacity: 1;
+}
+.curriculum-map-empty {
+    padding: 40px 28px;
+    color: #a09185;
+    font-style: italic;
+    font-size: 14px;
+    text-align: center;
 }
 
 .planning-picker-modal {

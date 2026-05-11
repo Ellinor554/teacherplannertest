@@ -20,6 +20,8 @@ let academicData = loadAcademicData();
 let selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
 let selectedAreaId = null;
 let selectedPanelView = 'areas';
+let curriculumMapMode = null; // 'view' | 'select' | null
+let curriculumMapEscapeHandler = null;
 
 function createId(prefix) {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
@@ -324,7 +326,11 @@ function toggleCoreContentDone(subjectKey, itemId) {
     if (!item) return;
     item.done = !item.done;
     saveAcademicData();
-    renderAcademicPlanningView();
+    if (curriculumMapMode) {
+        renderCurriculumMap();
+    } else {
+        renderAcademicPlanningView();
+    }
 }
 
 function countCoreContentUsage(subjectKey, itemId) {
@@ -340,6 +346,194 @@ function getAreaCoreContentItems(subjectKey, area) {
     const subject = getSubject(subjectKey);
     const selectedIds = new Set(area.coreContentIds);
     return subject.masterList.filter((item) => selectedIds.has(item.id));
+}
+
+function closeCurriculumMap() {
+    const overlay = document.getElementById('curriculum-map-overlay');
+    if (overlay) {
+        overlay.classList.add('cm-closing');
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('cm-closing');
+        }, 220);
+    }
+    if (curriculumMapEscapeHandler) {
+        document.removeEventListener('keydown', curriculumMapEscapeHandler);
+        curriculumMapEscapeHandler = null;
+    }
+    curriculumMapMode = null;
+    renderAcademicPlanningView();
+}
+
+function renderCurriculumMap() {
+    const subjectDef = SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
+    const subject = getSubject(selectedSubjectKey);
+    const isSelectMode = curriculumMapMode === 'select';
+
+    let overlay = document.getElementById('curriculum-map-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'curriculum-map-overlay';
+        document.body.appendChild(overlay);
+    }
+    overlay.className = 'curriculum-map-overlay';
+    overlay.classList.remove('hidden', 'cm-closing');
+    overlay.textContent = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'curriculum-map-header';
+
+    const titleArea = document.createElement('div');
+    titleArea.className = 'curriculum-map-title-area';
+
+    const subjectBadge = document.createElement('span');
+    subjectBadge.className = 'curriculum-map-subject-badge';
+    subjectBadge.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+    subjectBadge.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+    subjectBadge.textContent = subjectDef.label;
+
+    const mapTitle = document.createElement('h2');
+    mapTitle.className = 'curriculum-map-title serif-title';
+    mapTitle.textContent = isSelectMode ? 'Anslut innehåll' : 'Helhetsöversikt';
+
+    titleArea.appendChild(subjectBadge);
+    titleArea.appendChild(mapTitle);
+
+    if (isSelectMode) {
+        const hint = document.createElement('p');
+        hint.className = 'curriculum-map-hint';
+        hint.textContent = 'Tryck på punkter för att koppla dem till detta område.';
+        titleArea.appendChild(hint);
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'curriculum-map-close';
+    closeBtn.setAttribute('aria-label', 'Stäng');
+    closeBtn.textContent = isSelectMode ? 'Klar ✓' : '×';
+    closeBtn.addEventListener('click', closeCurriculumMap);
+
+    header.appendChild(titleArea);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    // Legend (view mode only)
+    if (!isSelectMode) {
+        const legend = document.createElement('div');
+        legend.className = 'curriculum-map-legend';
+        [
+            { cls: 'done', label: 'Genomfört' },
+            { cls: 'covered', label: 'Kopplat till område' },
+            { cls: 'unused', label: 'Inte kopplat ännu' },
+        ].forEach(({ cls, label }) => {
+            const item = document.createElement('span');
+            item.className = `curriculum-map-legend-item ${cls}`;
+            item.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+            item.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+            item.textContent = label;
+            legend.appendChild(item);
+        });
+        overlay.appendChild(legend);
+    }
+
+    // Build area-name lookup (itemId → [area titles])
+    const areasByItemId = {};
+    subject.areas.forEach((area) => {
+        ensureAreaDefaults(area);
+        (area.coreContentIds || []).forEach((id) => {
+            if (!areasByItemId[id]) areasByItemId[id] = [];
+            areasByItemId[id].push(area.title || 'Namnlöst område');
+        });
+    });
+
+    const currentArea = isSelectMode && selectedAreaId ? getAreaById(selectedSubjectKey, selectedAreaId) : null;
+    const currentAreaIds = currentArea ? (currentArea.coreContentIds || []) : [];
+
+    // Grid
+    if (!subject.masterList.length) {
+        const empty = document.createElement('p');
+        empty.className = 'curriculum-map-empty';
+        empty.textContent = 'Ingen kursplan inlagd ännu. Gå till fliken Kursplan för att lägga in punkter.';
+        overlay.appendChild(empty);
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'curriculum-map-grid custom-scrollbar';
+
+        subject.masterList.forEach((item) => {
+            const areaNames = areasByItemId[item.id] || [];
+            const isCovered = areaNames.length > 0;
+            const isDone = item.done;
+            const isSelectedForArea = isSelectMode && currentAreaIds.includes(item.id);
+
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'curriculum-map-card';
+            card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+            card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+
+            if (isSelectMode) {
+                if (isSelectedForArea) card.classList.add('selected');
+            } else {
+                if (isDone) card.classList.add('done');
+                else if (isCovered) card.classList.add('covered');
+                else card.classList.add('unused');
+            }
+
+            const text = document.createElement('span');
+            text.className = 'curriculum-map-card-text';
+            text.textContent = item.text;
+            card.appendChild(text);
+
+            // Tooltip for done items in view mode
+            if (!isSelectMode && isDone && areaNames.length > 0) {
+                const tooltip = document.createElement('span');
+                tooltip.className = 'curriculum-map-tooltip';
+                tooltip.textContent = `Genomfört i: ${areaNames.join(', ')}`;
+                card.appendChild(tooltip);
+            }
+
+            // Checkmark badge in select mode
+            if (isSelectMode) {
+                const check = document.createElement('span');
+                check.className = 'curriculum-map-card-check';
+                check.textContent = '✓';
+                card.appendChild(check);
+            }
+
+            if (isSelectMode) {
+                card.addEventListener('click', () => {
+                    const area = getAreaById(selectedSubjectKey, selectedAreaId);
+                    if (!area) return;
+                    ensureAreaDefaults(area);
+                    if (area.coreContentIds.includes(item.id)) {
+                        area.coreContentIds = area.coreContentIds.filter((id) => id !== item.id);
+                    } else {
+                        area.coreContentIds.push(item.id);
+                    }
+                    saveAcademicData();
+                    renderCurriculumMap();
+                });
+            } else {
+                card.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
+            }
+
+            grid.appendChild(card);
+        });
+
+        overlay.appendChild(grid);
+    }
+}
+
+function openCurriculumMap(mode = 'view') {
+    curriculumMapMode = mode;
+    renderCurriculumMap();
+    if (!curriculumMapEscapeHandler) {
+        curriculumMapEscapeHandler = (e) => {
+            if (e.key === 'Escape') closeCurriculumMap();
+        };
+        document.addEventListener('keydown', curriculumMapEscapeHandler);
+    }
 }
 
 function buildSubjectSidebar(container) {
@@ -386,14 +580,26 @@ function buildAreaPanel(container) {
     title.textContent = selectedPanelView === 'master-list' ? 'Kursplan' : 'Områden';
 
     header.appendChild(title);
+
+    const headerRight = document.createElement('div');
+    headerRight.className = 'academic-panel-header-right';
+
+    const overviewBtn = document.createElement('button');
+    overviewBtn.type = 'button';
+    overviewBtn.className = 'academic-overview-btn';
+    overviewBtn.textContent = 'Visa Helhetsöversikt';
+    overviewBtn.addEventListener('click', () => openCurriculumMap('view'));
+    headerRight.appendChild(overviewBtn);
+
     if (selectedPanelView === 'areas') {
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
         addBtn.className = 'academic-add-btn';
         addBtn.textContent = '+ Lägg till område';
         addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
-        header.appendChild(addBtn);
+        headerRight.appendChild(addBtn);
     }
+    header.appendChild(headerRight);
     panel.appendChild(header);
 
     const tabs = document.createElement('div');
@@ -663,55 +869,27 @@ function buildCoreContentSection(area, subject) {
     section.className = 'academic-grid-card';
     const subjectData = getSubject(selectedSubjectKey);
 
+    const titleRow = document.createElement('div');
+    titleRow.className = 'academic-grid-card-header';
+
     const title = document.createElement('h3');
     title.className = 'academic-grid-title';
     title.textContent = 'Centralt innehåll';
 
-    const availableItems = subjectData.masterList.filter((item) => !area.coreContentIds.includes(item.id));
+    const connectBtn = document.createElement('button');
+    connectBtn.type = 'button';
+    connectBtn.className = 'academic-connect-btn';
+    connectBtn.textContent = 'Anslut innehåll';
+    connectBtn.addEventListener('click', () => openCurriculumMap('select'));
+
+    titleRow.appendChild(title);
+    titleRow.appendChild(connectBtn);
+    section.appendChild(titleRow);
+
     const selectedItems = getAreaCoreContentItems(selectedSubjectKey, area);
 
-    section.appendChild(title);
-
-    if (subjectData.masterList.length) {
-        const form = document.createElement('form');
-        form.className = 'academic-core-picker';
-
-        const select = document.createElement('select');
-        select.className = 'academic-mini-input academic-core-select';
-
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = availableItems.length ? 'Välj från kursplan' : 'Alla punkter är redan valda';
-        placeholder.disabled = true;
-        placeholder.selected = true;
-        select.appendChild(placeholder);
-
-        availableItems.forEach((item) => {
-            const option = document.createElement('option');
-            option.value = item.id;
-            option.textContent = item.text;
-            select.appendChild(option);
-        });
-
-        const addBtn = document.createElement('button');
-        addBtn.type = 'submit';
-        addBtn.className = 'academic-add-btn small';
-        addBtn.textContent = 'Lägg till';
-        addBtn.disabled = !availableItems.length;
-
-        form.appendChild(select);
-        form.appendChild(addBtn);
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (!select.value) return;
-            addCoreContentSelection(selectedSubjectKey, area.id, select.value);
-        });
-
-        section.appendChild(form);
-    }
-
     const list = document.createElement('div');
-    list.className = 'academic-core-list custom-scrollbar';
+    list.className = 'academic-checklist custom-scrollbar';
 
     if (!subjectData.masterList.length) {
         const empty = document.createElement('p');
@@ -721,41 +899,26 @@ function buildCoreContentSection(area, subject) {
     } else if (!selectedItems.length) {
         const empty = document.createElement('p');
         empty.className = 'academic-empty';
-        empty.textContent = 'Välj punkter från kursplanen för detta område.';
+        empty.textContent = 'Tryck "Anslut innehåll" för att koppla kursplanspunkter.';
         list.appendChild(empty);
     } else {
         selectedItems.forEach((item) => {
             const row = document.createElement('div');
-            row.className = 'academic-core-item';
+            row.className = 'academic-checklist-item';
             row.style.setProperty('--subject-color', subject.color?.bg || '#a6857e');
             row.style.setProperty('--subject-light', subject.color?.light || '#f5efe9');
             if (item.done) row.classList.add('done');
             row.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
 
+            const checkbox = document.createElement('span');
+            checkbox.className = 'academic-checklist-checkbox';
+
             const text = document.createElement('span');
-            text.className = 'academic-core-text';
+            text.className = 'academic-checklist-text';
             text.textContent = item.text;
 
-            const actions = document.createElement('div');
-            actions.className = 'academic-core-actions';
-
-            const status = document.createElement('span');
-            status.className = 'academic-core-status';
-            status.textContent = item.done ? 'Klart' : 'Markera';
-
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'academic-core-remove';
-            removeBtn.textContent = '×';
-            removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                removeCoreContentSelection(selectedSubjectKey, area.id, item.id);
-            });
-
-            actions.appendChild(status);
-            actions.appendChild(removeBtn);
+            row.appendChild(checkbox);
             row.appendChild(text);
-            row.appendChild(actions);
             list.appendChild(row);
         });
     }
