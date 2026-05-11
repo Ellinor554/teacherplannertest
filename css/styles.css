@@ -581,7 +581,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     position: relative;
     padding: 0 !important;
     overflow: hidden;
-    background: #ffffff;
+    background-color: #ffffff !important;
 }
 .presentation-library {
     height: 100%;
@@ -671,10 +671,11 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     width: 100%;
     height: 100%;
     position: relative;
-    overflow: hidden;
+    overflow: hidden !important;
+    border: none;
     margin: 0;
     padding: 0;
-    background: #ffffff;
+    background-color: #ffffff !important;
 }
 .presentation-controls {
     position: absolute;
@@ -704,13 +705,14 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 }
 .presentation-iframe {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: -2%;
+    left: -2%;
+    width: 104%;
+    height: 104%;
     border: none;
     margin: 0;
     padding: 0;
+    background-color: #ffffff !important;
 }
 
 /* ── Presentation settings panel ───────────────────────────────────────────── */

@@ -439,8 +439,24 @@ function normalizePresentationUrl(raw) {
     return {
         id,
         editUrl: `https://docs.google.com/presentation/d/${id}/edit`,
-        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal`,
+        embedUrl: buildPresentationEmbedUrl(id),
     };
+}
+
+function buildPresentationEmbedUrl(id) {
+    const embed = new URL(`https://docs.google.com/presentation/d/${id}/embed`);
+    embed.searchParams.set('rm', 'minimal');
+    return embed.toString();
+}
+
+function ensurePresentationEmbedMinimal(url) {
+    try {
+        const parsed = new URL(url);
+        parsed.searchParams.set('rm', 'minimal');
+        return parsed.toString();
+    } catch {
+        return url;
+    }
 }
 
 function loadPresentationData() {
@@ -644,7 +660,7 @@ function initPresentationTool(tool, body, launchUrl) {
         controls.appendChild(saveBtn);
 
         const iframe = document.createElement('iframe');
-        iframe.src = normalized.embedUrl;
+        iframe.src = ensurePresentationEmbedMinimal(normalized.embedUrl);
         iframe.className = 'presentation-iframe';
         iframe.allowFullscreen = true;
         iframe.loading = 'lazy';
