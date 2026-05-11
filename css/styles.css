@@ -860,8 +860,9 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     border-bottom: 1px solid #eee7dc;
 }
 .curriculum-map-editor-textarea {
+    --curriculum-editor-max-height: min(40vh, 320px);
     min-height: 120px;
-    max-height: min(40vh, 320px);
+    max-height: var(--curriculum-editor-max-height);
     border: 1px solid #e4ddd3;
     border-radius: 9px;
     background: #fff;

@@ -27,14 +27,15 @@ const MASTER_SECTION_DEFINITIONS = [
     { key: 'investigations', title: 'Systematiska undersökningar' },
     { key: 'reactions', title: 'Materia och kemiska reaktioner' },
 ];
+const DEFAULT_SECTION_KEY = 'section-1';
 
 function getDefaultSectionKey() {
-    return MASTER_SECTION_DEFINITIONS[0]?.key || 'section-1';
+    return MASTER_SECTION_DEFINITIONS[0]?.key || DEFAULT_SECTION_KEY;
 }
 
 function createDefaultMasterSections() {
     if (!MASTER_SECTION_DEFINITIONS.length) {
-        return [{ key: 'section-1', title: 'Del 1', items: [] }];
+        return [{ key: DEFAULT_SECTION_KEY, title: 'Del 1', items: [] }];
     }
     return MASTER_SECTION_DEFINITIONS.map((def) => ({ key: def.key, title: def.title, items: [] }));
 }
@@ -120,7 +121,7 @@ function ensureSubjectDefaults(subject) {
             : []);
     const baselineSections = MASTER_SECTION_DEFINITIONS.length
         ? MASTER_SECTION_DEFINITIONS
-        : [{ key: 'section-1', title: 'Del 1' }];
+        : [{ key: DEFAULT_SECTION_KEY, title: 'Del 1' }];
 
     const normalizedSections = baselineSections.map((def) => {
         const existingSection = existingSections.find((entry) => entry?.key === def.key);
@@ -625,7 +626,7 @@ function renderCurriculumMap() {
                     upBtn.type = 'button';
                     upBtn.className = 'curriculum-map-sort-btn';
                     upBtn.textContent = '↑';
-                    upBtn.disabled = index <= 0 || !(section.items || []).length;
+                    upBtn.disabled = index <= 0;
                     upBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         moveMasterItem(selectedSubjectKey, section.key, item.id, 'up');
@@ -635,7 +636,7 @@ function renderCurriculumMap() {
                     downBtn.type = 'button';
                     downBtn.className = 'curriculum-map-sort-btn';
                     downBtn.textContent = '↓';
-                    downBtn.disabled = index === (section.items || []).length - 1;
+                    downBtn.disabled = index === section.items.length - 1;
                     downBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         moveMasterItem(selectedSubjectKey, section.key, item.id, 'down');
