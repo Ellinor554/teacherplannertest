@@ -546,6 +546,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     font-weight: 600;
 }
 .floating-tool-body.presentation-body {
+    position: relative;
     padding: 0;
     overflow: hidden;
     background: #f9f8f6;
@@ -673,10 +674,12 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
    parent clips the excess. */
 .presentation-iframe {
     position: absolute;
-    top: -0.5%;
-    left: -0.5%;
-    width: 101%;
-    height: 101%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: scale(1.02);
+    transform-origin: center center;
     border: none;
     margin: 0;
     padding: 0;

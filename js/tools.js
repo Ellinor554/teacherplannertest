@@ -267,6 +267,10 @@ export function openTool(type, options = {}) {
                 clearTimeout(tool._presentationResizeDebounce);
                 tool._presentationResizeDebounce = null;
             }
+            if (tool._presentationWindowResizeListener) {
+                window.removeEventListener('resize', tool._presentationWindowResizeListener);
+                tool._presentationWindowResizeListener = null;
+            }
         };
     }
 
@@ -378,7 +382,7 @@ function normalizePresentationUrl(raw) {
     return {
         id,
         editUrl: `https://docs.google.com/presentation/d/${id}/edit`,
-        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal&start=false&loop=false&delayms=3000`,
+        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal`,
     };
 }
 
@@ -658,18 +662,9 @@ function enforcePresentationAspectRatio(tool) {
         return { w, h };
     };
 
-    const ro = new ResizeObserver(() => {
-        if (adjusting) return;
-        const width = tool.offsetWidth;
-        const height = tool.offsetHeight;
-        if (!width || !height) return;
-        queueRefresh();
-
-        // Strict 16:9 based on width while user resizes.
-        // Strict lock: newHeight = newWidth * (9/16) == newWidth / (16/9).
-        const targetHeight = Math.round(width / PRESENTATION_RATIO);
-        const { w, h } = clampToViewport(width);
-        if (w === width && h === height) return;
+    const enforceSize = (requestedWidth) => {
+        const { w, h } = clampToViewport(requestedWidth);
+        if (w === tool.offsetWidth && h === tool.offsetHeight) return;
 
         adjusting = true;
         tool.style.width = `${w}px`;
@@ -683,8 +678,23 @@ function enforcePresentationAspectRatio(tool) {
         requestAnimationFrame(() => {
             adjusting = false;
         });
+    };
+
+    const ro = new ResizeObserver(() => {
+        if (adjusting) return;
+        const width = tool.offsetWidth;
+        if (!width) return;
+        enforceSize(width);
+        queueRefresh();
     });
     ro.observe(tool);
+    const handleWindowResize = () => {
+        if (adjusting) return;
+        enforceSize(tool.offsetWidth || PRESENTATION_MIN_WIDTH);
+        queueRefresh();
+    };
+    window.addEventListener('resize', handleWindowResize, { passive: true });
+    tool._presentationWindowResizeListener = handleWindowResize;
     return ro;
 }
 
