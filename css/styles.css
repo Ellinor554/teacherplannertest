@@ -546,7 +546,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     font-weight: 600;
 }
 .floating-tool-body.presentation-body {
-    padding: 0px;
+    padding: 0;
     overflow: hidden;
     background: #f9f8f6;
 }
