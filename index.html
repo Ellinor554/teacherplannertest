@@ -27,11 +27,12 @@
     </div>
     <div class="flex-1 flex flex-col p-6 overflow-hidden">
         <div class="flex justify-between items-center mb-6">
-            <div class="flex items-center gap-4">
+            <div id="week-nav" class="flex items-center gap-4">
                 <button onclick="changeWeek(-1)" class="text-2xl font-bold hover:text-gray-600">&lsaquo;</button>
                 <h1 class="text-4xl serif-title">Vecka <span id="current-week-display">--</span></h1>
                 <button onclick="changeWeek(1)" class="text-2xl font-bold hover:text-gray-600">&rsaquo;</button>
             </div>
+            <h1 id="academic-planning-title" class="hidden text-4xl serif-title">Läsårsplanering</h1>
             <div id="digital-clock" class="clock-display tracking-widest">00:00</div>
         </div>
         <div id="view-oversikt" class="grid grid-cols-5 gap-4 h-full overflow-y-auto custom-scrollbar pb-10"></div>
@@ -54,9 +55,8 @@
                         <p id="detail-date" class="text-gray-500 text-sm font-medium"></p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button onclick="addLessonPrompt()" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#8da089] transition-all transform hover:scale-105">+ Ny lektion</button>
-                        <button onclick="openPlanningPresentationPicker()" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#92756e] transition-all transform hover:scale-105">Hämta från planering</button>
-                        <button onclick="toggleSidebar()" title="Dölj sidopanel" class="bg-[#c8b49a] text-white px-3 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#b8a48a] transition-all transform hover:scale-105">◀ Dölj</button>
+                        <button onclick="addLessonPrompt()" class="bg-[#9eb19a] text-white px-2 py-1 rounded text-xs font-medium hover:bg-[#8da089] transition-colors">+ Ny lektion</button>
+                        <button onclick="toggleSidebar()" title="Dölj sidopanel" class="bg-[#c8b49a] text-white px-2 py-1 rounded text-xs font-medium hover:bg-[#b8a48a] transition-colors">◀ Dölj</button>
                     </div>
                 </div>
                 <div id="detail-lesson-list" class="space-y-4 pb-20"></div>
@@ -68,7 +68,7 @@
                             <h3 id="sb-subject" class="text-6xl font-bold mb-2 text-[#a6857e] tracking-tight">Välj en lektion</h3>
                             <p id="sb-time" class="text-2xl text-gray-300 italic"></p>
                         </div>
-                        <button id="show-sidebar-btn" onclick="toggleSidebar()" title="Visa sidopanel" class="bg-[#c8b49a] text-white px-3 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#b8a48a] transition-all transform hover:scale-105">▶ Visa</button>
+                        <button id="show-sidebar-btn" onclick="toggleSidebar()" title="Visa sidopanel" class="bg-[#c8b49a] text-white px-2 py-1 rounded text-xs font-medium hover:bg-[#b8a48a] transition-colors">▶ Visa</button>
                     </div>
                     <div id="sb-columns" class="flex gap-6 min-h-[500px]">
                         <div id="sb-plan" class="flex-1 outline-none min-h-[500px] whitespace-pre-wrap pb-32 text-gray-700 relative" contenteditable="true" oninput="handleInput()" onpaste="handlePaste(event)" placeholder="Skriv din planering här..."></div>

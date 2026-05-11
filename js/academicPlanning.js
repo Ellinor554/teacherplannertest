@@ -560,6 +560,7 @@ function buildSubjectSidebar(container) {
         btn.addEventListener('click', () => {
             selectedSubjectKey = subject.key;
             selectedAreaId = null;
+            updateAcademicPlanningTitle(subject.label);
             renderAcademicPlanningView();
         });
         sidebar.appendChild(btn);
@@ -970,6 +971,11 @@ function buildDashboard(container, subject) {
     container.appendChild(dashboard);
 }
 
+function updateAcademicPlanningTitle(subjectLabel) {
+    const titleEl = document.getElementById('academic-planning-title');
+    if (titleEl) titleEl.textContent = `Läsårsplanering - ${subjectLabel}`;
+}
+
 export function renderAcademicPlanningView() {
     const container = document.getElementById('view-lasarsplanering');
     if (!container) return;
@@ -980,12 +986,13 @@ export function renderAcademicPlanningView() {
     }
     ensureSelection();
 
+    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
+    updateAcademicPlanningTitle(subject.label);
+
     container.textContent = '';
 
     const layout = document.createElement('div');
     layout.className = 'academic-layout';
-
-    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
 
     buildSubjectSidebar(layout);
     buildAreaPanel(layout);
