@@ -19,9 +19,14 @@ const SUBJECT_DEFINITIONS = [
 let academicData = loadAcademicData();
 let selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
 let selectedAreaId = null;
-let selectedPanelView = 'areas';
 let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
+
+const MASTER_SECTION_DEFINITIONS = [
+    { key: 'nature', title: 'Kemin i naturen' },
+    { key: 'investigations', title: 'Systematiska undersökningar' },
+    { key: 'reactions', title: 'Materia och kemiska reaktioner' },
+];
 
 function createId(prefix) {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
@@ -48,12 +53,22 @@ function ensureUniqueIds(ids) {
     return [...new Set((ids || []).filter((id) => typeof id === 'string' && id))];
 }
 
-function upsertMasterListItem(subject, text, done = false) {
+function getAllMasterItems(subject) {
+    if (!subject || !Array.isArray(subject.masterSections)) return [];
+    return subject.masterSections.flatMap((section) => section.items || []);
+}
+
+function getSectionByKey(subject, sectionKey) {
+    if (!subject || !Array.isArray(subject.masterSections)) return null;
+    return subject.masterSections.find((section) => section.key === sectionKey) || null;
+}
+
+function upsertMasterListItem(subject, text, done = false, preferredSectionKey = MASTER_SECTION_DEFINITIONS[0].key) {
     const normalizedText = normalizeCoreContentText(text);
     if (!normalizedText) return null;
 
-    if (!Array.isArray(subject.masterList)) subject.masterList = [];
-    const existing = subject.masterList.find((item) => normalizeCoreContentText(item.text).toLowerCase() === normalizedText.toLowerCase());
+    if (!Array.isArray(subject.masterSections)) subject.masterSections = [];
+    const existing = getAllMasterItems(subject).find((item) => normalizeCoreContentText(item.text).toLowerCase() === normalizedText.toLowerCase());
     if (existing) {
         existing.done = Boolean(existing.done || done);
         existing.text = normalizedText;
@@ -61,16 +76,16 @@ function upsertMasterListItem(subject, text, done = false) {
     }
 
     const item = { id: createId('core'), text: normalizedText, done: Boolean(done) };
-    subject.masterList.push(item);
+    const targetSection = getSectionByKey(subject, preferredSectionKey) || subject.masterSections[0];
+    if (!targetSection) return null;
+    targetSection.items.push(item);
     return item;
 }
 
 function ensureSubjectDefaults(subject) {
-    if (!subject || typeof subject !== 'object') return { areas: [], masterList: [] };
+    if (!subject || typeof subject !== 'object') return { areas: [], masterSections: [] };
     if (!Array.isArray(subject.areas)) subject.areas = [];
-    if (!Array.isArray(subject.masterList)) subject.masterList = [];
-
-    subject.masterList = subject.masterList.reduce((items, entry) => {
+    const legacyItems = (Array.isArray(subject.masterList) ? subject.masterList : []).reduce((items, entry) => {
         const text = normalizeCoreContentText(entry?.text);
         if (!text) return items;
         const existing = items.find((item) => item.text.toLowerCase() === text.toLowerCase());
@@ -85,6 +100,46 @@ function ensureSubjectDefaults(subject) {
         });
         return items;
     }, []);
+    subject.masterList = [];
+
+    if (!Array.isArray(subject.masterSections)) {
+        subject.masterSections = MASTER_SECTION_DEFINITIONS.map((def) => ({ key: def.key, title: def.title, items: [] }));
+    }
+
+    const normalizedSections = MASTER_SECTION_DEFINITIONS.map((def) => {
+        const existingSection = subject.masterSections.find((entry) => entry?.key === def.key);
+        const items = [];
+        (Array.isArray(existingSection?.items) ? existingSection.items : []).forEach((entry) => {
+            const text = normalizeCoreContentText(entry?.text);
+            if (!text) return;
+            const duplicate = items.find((item) => item.text.toLowerCase() === text.toLowerCase());
+            if (duplicate) {
+                duplicate.done = Boolean(duplicate.done || entry?.done);
+                return;
+            }
+            items.push({
+                id: typeof entry?.id === 'string' && entry.id ? entry.id : createId('core'),
+                text,
+                done: Boolean(entry?.done),
+            });
+        });
+        return {
+            key: def.key,
+            title: typeof existingSection?.title === 'string' && existingSection.title.trim() ? existingSection.title.trim() : def.title,
+            items,
+        };
+    });
+    subject.masterSections = normalizedSections;
+
+    legacyItems.forEach((item) => {
+        const existing = getAllMasterItems(subject).find((entry) => entry.id === item.id || entry.text.toLowerCase() === item.text.toLowerCase());
+        if (existing) {
+            existing.done = Boolean(existing.done || item.done);
+            return;
+        }
+        const firstSection = subject.masterSections[0];
+        if (firstSection) firstSection.items.push(item);
+    });
 
     subject.areas.forEach((area) => {
         ensureAreaDefaults(area);
@@ -96,7 +151,7 @@ function ensureSubjectDefaults(subject) {
             if (masterItem) area.coreContentIds.push(masterItem.id);
         });
 
-        const validIds = new Set(subject.masterList.map((item) => item.id));
+        const validIds = new Set(getAllMasterItems(subject).map((item) => item.id));
         area.coreContentIds = ensureUniqueIds(area.coreContentIds).filter((id) => validIds.has(id));
         area.coreContent = [];
     });
@@ -123,13 +178,13 @@ function loadAcademicData() {
         const parsed = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY) || '{}');
         const subjects = parsed?.subjects && typeof parsed.subjects === 'object' ? parsed.subjects : {};
         SUBJECT_DEFINITIONS.forEach((subject) => {
-            subjects[subject.key] = ensureSubjectDefaults(subjects[subject.key] || { areas: [], masterList: [] });
+            subjects[subject.key] = ensureSubjectDefaults(subjects[subject.key] || { areas: [], masterSections: [] });
         });
         return { subjects };
     } catch {
         const subjects = {};
         SUBJECT_DEFINITIONS.forEach((subject) => {
-            subjects[subject.key] = { areas: [], masterList: [] };
+            subjects[subject.key] = { areas: [], masterSections: [] };
         });
         return { subjects };
     }
@@ -141,7 +196,7 @@ function saveAcademicData() {
 
 function getSubject(subjectKey) {
     if (!academicData.subjects[subjectKey]) {
-        academicData.subjects[subjectKey] = { areas: [], masterList: [] };
+        academicData.subjects[subjectKey] = { areas: [], masterSections: [] };
     }
     return ensureSubjectDefaults(academicData.subjects[subjectKey]);
 }
@@ -261,9 +316,11 @@ function setLinkField(subjectKey, areaId, kind, linkId, field, value) {
     saveAcademicData();
 }
 
-function replaceMasterList(subjectKey, rawText) {
+function replaceMasterSectionItems(subjectKey, sectionKey, rawText) {
     const subject = getSubject(subjectKey);
-    const currentItems = [...subject.masterList];
+    const section = getSectionByKey(subject, sectionKey);
+    if (!section) return;
+    const currentItems = [...section.items];
     const lines = parseMasterListText(rawText);
     const usedIds = new Set();
     const nextItems = lines.map((line, index) => {
@@ -290,13 +347,28 @@ function replaceMasterList(subjectKey, rawText) {
         return;
     }
 
-    subject.masterList = nextItems;
+    section.items = nextItems;
+    const validIds = new Set(getAllMasterItems(subject).map((item) => item.id));
     subject.areas.forEach((area) => {
         ensureAreaDefaults(area);
-        area.coreContentIds = ensureUniqueIds(area.coreContentIds).filter((id) => nextIds.has(id));
+        area.coreContentIds = ensureUniqueIds(area.coreContentIds).filter((id) => validIds.has(id));
     });
     saveAcademicData();
-    renderAcademicPlanningView();
+    renderCurriculumMap();
+}
+
+function moveMasterItem(subjectKey, sectionKey, itemId, direction) {
+    const subject = getSubject(subjectKey);
+    const section = getSectionByKey(subject, sectionKey);
+    if (!section) return;
+    const index = section.items.findIndex((item) => item.id === itemId);
+    if (index < 0) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= section.items.length) return;
+    const [item] = section.items.splice(index, 1);
+    section.items.splice(targetIndex, 0, item);
+    saveAcademicData();
+    renderCurriculumMap();
 }
 
 function addCoreContentSelection(subjectKey, areaId, itemId) {
@@ -312,7 +384,7 @@ function removeCoreContentSelection(subjectKey, areaId, itemId) {
     const area = getAreaById(subjectKey, areaId);
     if (!area) return;
     ensureAreaDefaults(area);
-    const item = getSubject(subjectKey).masterList.find((entry) => entry.id === itemId);
+    const item = getAllMasterItems(getSubject(subjectKey)).find((entry) => entry.id === itemId);
     if (!item) return;
     if (!confirm(`Är du säker på att du vill ta bort "${item.text}" från området?`)) return;
     area.coreContentIds = area.coreContentIds.filter((id) => id !== itemId);
@@ -322,7 +394,7 @@ function removeCoreContentSelection(subjectKey, areaId, itemId) {
 
 function toggleCoreContentDone(subjectKey, itemId) {
     const subject = getSubject(subjectKey);
-    const item = subject.masterList.find((entry) => entry.id === itemId);
+    const item = getAllMasterItems(subject).find((entry) => entry.id === itemId);
     if (!item) return;
     item.done = !item.done;
     saveAcademicData();
@@ -345,7 +417,7 @@ function getAreaCoreContentItems(subjectKey, area) {
     ensureAreaDefaults(area);
     const subject = getSubject(subjectKey);
     const selectedIds = new Set(area.coreContentIds);
-    return subject.masterList.filter((item) => selectedIds.has(item.id));
+    return getAllMasterItems(subject).filter((item) => selectedIds.has(item.id));
 }
 
 function closeCurriculumMap() {
@@ -450,79 +522,145 @@ function renderCurriculumMap() {
     const currentArea = isSelectMode && selectedAreaId ? getAreaById(selectedSubjectKey, selectedAreaId) : null;
     const currentAreaIds = currentArea ? (currentArea.coreContentIds || []) : [];
 
-    // Grid
-    if (!subject.masterList.length) {
-        const empty = document.createElement('p');
-        empty.className = 'curriculum-map-empty';
-        empty.textContent = 'Ingen kursplan inlagd ännu. Gå till fliken Kursplan för att lägga in punkter.';
-        overlay.appendChild(empty);
-    } else {
-        const grid = document.createElement('div');
-        grid.className = 'curriculum-map-grid custom-scrollbar';
+    // Sections
+    const sectionsWrap = document.createElement('div');
+    sectionsWrap.className = 'curriculum-map-sections custom-scrollbar';
 
-        subject.masterList.forEach((item) => {
-            const areaNames = areasByItemId[item.id] || [];
-            const isCovered = areaNames.length > 0;
-            const isDone = item.done;
-            const isSelectedForArea = isSelectMode && currentAreaIds.includes(item.id);
+    subject.masterSections.forEach((section) => {
+            const sectionCard = document.createElement('section');
+            sectionCard.className = 'curriculum-map-section';
 
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className = 'curriculum-map-card';
-            card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
-            card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+            const sectionHeader = document.createElement('div');
+            sectionHeader.className = 'curriculum-map-section-header';
 
-            if (isSelectMode) {
-                if (isSelectedForArea) card.classList.add('selected');
+            const sectionTitle = document.createElement('h3');
+            sectionTitle.className = 'curriculum-map-section-title serif-title';
+            sectionTitle.textContent = section.title;
+            sectionHeader.appendChild(sectionTitle);
+
+            if (!isSelectMode) {
+                const editor = document.createElement('div');
+                editor.className = 'curriculum-map-editor';
+
+                const textarea = document.createElement('textarea');
+                textarea.className = 'curriculum-map-editor-textarea custom-scrollbar';
+                textarea.placeholder = 'En punkt per rad...';
+                textarea.value = (section.items || []).map((item) => item.text).join('\n');
+
+                const saveBtn = document.createElement('button');
+                saveBtn.type = 'button';
+                saveBtn.className = 'academic-add-btn small';
+                saveBtn.textContent = 'Spara';
+                saveBtn.addEventListener('click', () => replaceMasterSectionItems(selectedSubjectKey, section.key, textarea.value));
+
+                editor.appendChild(textarea);
+                editor.appendChild(saveBtn);
+                sectionCard.appendChild(sectionHeader);
+                sectionCard.appendChild(editor);
             } else {
-                if (isDone) card.classList.add('done');
-                else if (isCovered) card.classList.add('covered');
-                else card.classList.add('unused');
+                sectionCard.appendChild(sectionHeader);
             }
 
-            const text = document.createElement('span');
-            text.className = 'curriculum-map-card-text';
-            text.textContent = item.text;
-            card.appendChild(text);
+            const grid = document.createElement('div');
+            grid.className = 'curriculum-map-grid';
 
-            // Tooltip for done items in view mode
-            if (!isSelectMode && isDone && areaNames.length > 0) {
-                const tooltip = document.createElement('span');
-                tooltip.className = 'curriculum-map-tooltip';
-                tooltip.textContent = `Genomfört i: ${areaNames.join(', ')}`;
-                card.appendChild(tooltip);
+            (section.items || []).forEach((item, index) => {
+                const areaNames = areasByItemId[item.id] || [];
+                const isCovered = areaNames.length > 0;
+                const isDone = item.done;
+                const isSelectedForArea = isSelectMode && currentAreaIds.includes(item.id);
+
+                const card = document.createElement('button');
+                card.type = 'button';
+                card.className = 'curriculum-map-card';
+                card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+                card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+
+                if (isSelectMode) {
+                    if (isSelectedForArea) card.classList.add('selected');
+                } else {
+                    if (isDone) card.classList.add('done');
+                    else if (isCovered) card.classList.add('covered');
+                    else card.classList.add('unused');
+                }
+
+                const text = document.createElement('span');
+                text.className = 'curriculum-map-card-text';
+                text.textContent = item.text;
+                card.appendChild(text);
+
+                if (!isSelectMode && isDone && areaNames.length > 0) {
+                    const tooltip = document.createElement('span');
+                    tooltip.className = 'curriculum-map-tooltip';
+                    tooltip.textContent = `Genomfört i: ${areaNames.join(', ')}`;
+                    card.appendChild(tooltip);
+                }
+
+                if (isSelectMode) {
+                    const check = document.createElement('span');
+                    check.className = 'curriculum-map-card-check';
+                    check.textContent = '✓';
+                    card.appendChild(check);
+                } else {
+                    const sortControls = document.createElement('span');
+                    sortControls.className = 'curriculum-map-sort-controls';
+
+                    const upBtn = document.createElement('button');
+                    upBtn.type = 'button';
+                    upBtn.className = 'curriculum-map-sort-btn';
+                    upBtn.textContent = '↑';
+                    upBtn.disabled = index === 0;
+                    upBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        moveMasterItem(selectedSubjectKey, section.key, item.id, 'up');
+                    });
+
+                    const downBtn = document.createElement('button');
+                    downBtn.type = 'button';
+                    downBtn.className = 'curriculum-map-sort-btn';
+                    downBtn.textContent = '↓';
+                    downBtn.disabled = index === (section.items || []).length - 1;
+                    downBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        moveMasterItem(selectedSubjectKey, section.key, item.id, 'down');
+                    });
+
+                    sortControls.appendChild(upBtn);
+                    sortControls.appendChild(downBtn);
+                    card.appendChild(sortControls);
+                }
+
+                if (isSelectMode) {
+                    card.addEventListener('click', () => {
+                        const area = getAreaById(selectedSubjectKey, selectedAreaId);
+                        if (!area) return;
+                        ensureAreaDefaults(area);
+                        if (area.coreContentIds.includes(item.id)) {
+                            area.coreContentIds = area.coreContentIds.filter((id) => id !== item.id);
+                        } else {
+                            area.coreContentIds.push(item.id);
+                        }
+                        saveAcademicData();
+                        renderCurriculumMap();
+                    });
+                } else {
+                    card.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
+                }
+
+                grid.appendChild(card);
+            });
+
+            if (!(section.items || []).length) {
+                const emptySection = document.createElement('p');
+                emptySection.className = 'academic-empty';
+                emptySection.textContent = isSelectMode ? 'Inga punkter i denna del än.' : 'Lägg till punkter ovan.';
+                grid.appendChild(emptySection);
             }
 
-            // Checkmark badge in select mode
-            if (isSelectMode) {
-                const check = document.createElement('span');
-                check.className = 'curriculum-map-card-check';
-                check.textContent = '✓';
-                card.appendChild(check);
-            }
-
-            if (isSelectMode) {
-                card.addEventListener('click', () => {
-                    const area = getAreaById(selectedSubjectKey, selectedAreaId);
-                    if (!area) return;
-                    ensureAreaDefaults(area);
-                    if (area.coreContentIds.includes(item.id)) {
-                        area.coreContentIds = area.coreContentIds.filter((id) => id !== item.id);
-                    } else {
-                        area.coreContentIds.push(item.id);
-                    }
-                    saveAcademicData();
-                    renderCurriculumMap();
-                });
-            } else {
-                card.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
-            }
-
-            grid.appendChild(card);
+            sectionCard.appendChild(grid);
+            sectionsWrap.appendChild(sectionCard);
         });
-
-        overlay.appendChild(grid);
-    }
+    overlay.appendChild(sectionsWrap);
 }
 
 function openCurriculumMap(mode = 'view') {
@@ -578,57 +716,28 @@ function buildAreaPanel(container) {
 
     const title = document.createElement('h2');
     title.className = 'serif-title text-3xl';
-    title.textContent = selectedPanelView === 'master-list' ? 'Kursplan' : 'Områden';
+    title.textContent = 'Områden';
 
     header.appendChild(title);
 
     const headerRight = document.createElement('div');
     headerRight.className = 'academic-panel-header-right';
 
-    const overviewBtn = document.createElement('button');
-    overviewBtn.type = 'button';
-    overviewBtn.className = 'academic-overview-btn';
-    overviewBtn.textContent = 'Visa Helhetsöversikt';
-    overviewBtn.addEventListener('click', () => openCurriculumMap('view'));
-    headerRight.appendChild(overviewBtn);
+    const curriculumBtn = document.createElement('button');
+    curriculumBtn.type = 'button';
+    curriculumBtn.className = 'academic-overview-btn';
+    curriculumBtn.textContent = 'Kursplan';
+    curriculumBtn.addEventListener('click', () => openCurriculumMap('view'));
+    headerRight.appendChild(curriculumBtn);
 
-    if (selectedPanelView === 'areas') {
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'academic-add-btn';
-        addBtn.textContent = '+ Lägg till område';
-        addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
-        headerRight.appendChild(addBtn);
-    }
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'academic-add-btn';
+    addBtn.textContent = '+ Lägg till område';
+    addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
+    headerRight.appendChild(addBtn);
     header.appendChild(headerRight);
     panel.appendChild(header);
-
-    const tabs = document.createElement('div');
-    tabs.className = 'academic-panel-tabs';
-
-    [
-        { key: 'areas', label: 'Områden' },
-        { key: 'master-list', label: 'Kursplan' },
-    ].forEach((tab) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'academic-panel-tab';
-        btn.textContent = tab.label;
-        btn.classList.toggle('active', selectedPanelView === tab.key);
-        btn.addEventListener('click', () => {
-            selectedPanelView = tab.key;
-            renderAcademicPlanningView();
-        });
-        tabs.appendChild(btn);
-    });
-
-    panel.appendChild(tabs);
-
-    if (selectedPanelView === 'master-list') {
-        buildMasterListPanel(panel);
-        container.appendChild(panel);
-        return;
-    }
 
     const list = document.createElement('div');
     list.className = 'academic-area-list';
@@ -711,77 +820,6 @@ function buildAreaPanel(container) {
 
     panel.appendChild(list);
     container.appendChild(panel);
-}
-
-function buildMasterListPanel(panel) {
-    const subject = getSubject(selectedSubjectKey);
-    const subjectDefinition = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey);
-    const wrapper = document.createElement('div');
-    wrapper.className = 'academic-master-view';
-
-    const hint = document.createElement('p');
-    hint.className = 'academic-master-hint';
-    hint.textContent = 'Klistra in hela kursplanen med en punkt per rad. Markeringar behålls så länge punkten finns kvar.';
-
-    const textarea = document.createElement('textarea');
-    textarea.className = 'academic-master-textarea custom-scrollbar';
-    textarea.placeholder = 'En punkt per rad...';
-    textarea.value = subject.masterList.map((item) => item.text).join('\n');
-
-    const actions = document.createElement('div');
-    actions.className = 'academic-master-actions';
-
-    const count = document.createElement('span');
-    count.className = 'academic-master-count';
-    count.textContent = `${subject.masterList.length} punkt${subject.masterList.length === 1 ? '' : 'er'}`;
-
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'academic-add-btn small';
-    saveBtn.textContent = 'Spara kursplan';
-    saveBtn.addEventListener('click', () => replaceMasterList(selectedSubjectKey, textarea.value));
-
-    actions.appendChild(count);
-    actions.appendChild(saveBtn);
-
-    const list = document.createElement('div');
-    list.className = 'academic-master-list custom-scrollbar';
-
-    if (!subject.masterList.length) {
-        const empty = document.createElement('p');
-        empty.className = 'academic-empty';
-        empty.textContent = 'Ingen kursplan ännu';
-        list.appendChild(empty);
-    } else {
-        subject.masterList.forEach((item) => {
-            const row = document.createElement('button');
-            row.type = 'button';
-            row.className = 'academic-master-item';
-            row.style.setProperty('--subject-color', subjectDefinition?.color?.bg || '#a6857e');
-            row.style.setProperty('--subject-light', subjectDefinition?.color?.light || '#f5efe9');
-            if (item.done) row.classList.add('done');
-            row.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
-
-            const text = document.createElement('span');
-            text.className = 'academic-master-text';
-            text.textContent = item.text;
-
-            const meta = document.createElement('span');
-            meta.className = 'academic-master-meta';
-            const usageCount = countCoreContentUsage(selectedSubjectKey, item.id);
-            meta.textContent = `${usageCount} område${usageCount === 1 ? '' : 'n'} • ${item.done ? 'Klart' : 'Markera'}`;
-
-            row.appendChild(text);
-            row.appendChild(meta);
-            list.appendChild(row);
-        });
-    }
-
-    wrapper.appendChild(hint);
-    wrapper.appendChild(textarea);
-    wrapper.appendChild(actions);
-    wrapper.appendChild(list);
-    panel.appendChild(wrapper);
 }
 
 function buildLinkSection({ area, sectionTitle, kind, subjectKey }) {
@@ -892,10 +930,10 @@ function buildCoreContentSection(area, subject) {
     const list = document.createElement('div');
     list.className = 'academic-checklist custom-scrollbar';
 
-    if (!subjectData.masterList.length) {
+    if (!getAllMasterItems(subjectData).length) {
         const empty = document.createElement('p');
         empty.className = 'academic-empty';
-        empty.textContent = 'Lägg först in ämnets kursplan under fliken Kursplan.';
+        empty.textContent = 'Lägg först in ämnets kursplan via knappen Kursplan.';
         list.appendChild(empty);
     } else if (!selectedItems.length) {
         const empty = document.createElement('p');
