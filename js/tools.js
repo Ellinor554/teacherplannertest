@@ -353,7 +353,7 @@ export function openTool(type, options = {}) {
     } else if (type === 'presentation') {
         setTimeout(() => {
             const width = Math.min(window.innerWidth * 0.9, 960);
-            const height = Math.round((width * 9) / 16);
+            const height = Math.round(width / PRESENTATION_RATIO);
             tool.style.width = `${Math.round(width)}px`;
             tool.style.height = `${height}px`;
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
@@ -650,10 +650,10 @@ function enforcePresentationAspectRatio(tool) {
         const maxWidth = Math.floor(window.innerWidth * 0.95);
         const maxHeight = Math.floor(window.innerHeight * 0.95);
         let w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(width, maxWidth));
-        let h = Math.round((w * 9) / 16);
+        let h = Math.round(w / PRESENTATION_RATIO);
         if (h > maxHeight) {
             h = Math.max(PRESENTATION_MIN_HEIGHT, maxHeight);
-            w = Math.round((h * 16) / 9);
+            w = Math.round(h * PRESENTATION_RATIO);
         }
         return { w, h };
     };
@@ -666,7 +666,8 @@ function enforcePresentationAspectRatio(tool) {
         queueRefresh();
 
         // Strict 16:9 based on width while user resizes.
-        const targetHeight = Math.round((width * 9) / 16);
+        // Strict lock: newHeight = newWidth * (9/16) == newWidth / (16/9).
+        const targetHeight = Math.round(width / PRESENTATION_RATIO);
         const { w, h } = clampToViewport(width);
         if (w === width && h === height) return;
 
