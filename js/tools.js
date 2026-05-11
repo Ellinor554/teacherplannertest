@@ -121,7 +121,7 @@ export function saveAndClearLessonTools() {
  * Call this after switching to the lesson's view.
  */
 export function restoreLessonTools(dayIndex, lessonId) {
-    if (lessonId == null) return;
+    if (lessonId === null || lessonId === undefined) return;
     const key = `${dayIndex}_${lessonId}`;
     _activeToolsLessonKey = key;
     const all = _getLessonToolsData();
@@ -277,7 +277,7 @@ export function openTool(type, options = {}) {
     if (lessonKey) tool.dataset.lessonKey = lessonKey;
 
     // Position: use saved state when restoring, otherwise cascade offset
-    if (savedState?.left && savedState?.top) {
+    if (savedState?.left != null && savedState?.top != null) {
         tool.style.left = savedState.left;
         tool.style.top  = savedState.top;
     } else {
@@ -501,7 +501,7 @@ export function openTool(type, options = {}) {
     } else if (type === 'presentation') {
         setTimeout(() => {
             // Only apply the default size preset when NOT restoring a saved state
-            if (!savedState?.width) {
+            if (savedState?.width == null) {
                 applyPresentationPresetSize(tool, PRESENTATION_DEFAULT_PRESET);
             }
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
