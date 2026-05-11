@@ -15,7 +15,6 @@ let _toolOffset = 0;
 const PRESENTATION_STORAGE_KEY = 'teacherplanner_presentation_links';
 const MAX_RECENT_PRESENTATIONS = 3;
 const PRESENTATION_RATIO = 16 / 9;
-const PRESENTATION_RATIO_TOLERANCE = 0.01;
 const PRESENTATION_MIN_WIDTH = 420;
 const PRESENTATION_MIN_HEIGHT = Math.ceil(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
 
@@ -196,7 +195,9 @@ export function openTool(type, options = {}) {
     header.className = 'floating-tool-header';
 
     const titleSpan = document.createElement('span');
-    titleSpan.className = 'font-bold text-[#a6857e] uppercase text-xs tracking-widest';
+    titleSpan.className = type === 'presentation'
+        ? 'floating-tool-title presentation-window-title'
+        : 'floating-tool-title';
     titleSpan.textContent = label;
 
     const closeBtn = document.createElement('button');
@@ -372,7 +373,7 @@ function normalizePresentationUrl(raw) {
     return {
         id,
         editUrl: `https://docs.google.com/presentation/d/${id}/edit`,
-        embedUrl: `https://docs.google.com/presentation/d/${id}/embed`,
+        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal`,
     };
 }
 
@@ -631,8 +632,6 @@ function buildPresentationLaunchList(items, onOpen, emptyText) {
 function enforcePresentationAspectRatio(tool) {
     if (typeof ResizeObserver === 'undefined') return null;
     let adjusting = false;
-    let lastWidth = tool.offsetWidth;
-    let lastHeight = tool.offsetHeight;
 
     const clampToViewport = (width, height) => {
         const maxWidth = Math.floor(window.innerWidth * 0.95);
@@ -652,19 +651,10 @@ function enforcePresentationAspectRatio(tool) {
         const height = tool.offsetHeight;
         if (!width || !height) return;
 
-        let nextWidth;
-        if (Math.abs(width - lastWidth) >= Math.abs(height - lastHeight)) {
-            nextWidth = width;
-        } else {
-            nextWidth = Math.round(height * PRESENTATION_RATIO);
-        }
-        const { w, h } = clampToViewport(nextWidth, Math.round(nextWidth / PRESENTATION_RATIO));
-        const currentRatioError = Math.abs(width / height - PRESENTATION_RATIO);
-        if (w === width && h === height && currentRatioError < PRESENTATION_RATIO_TOLERANCE) {
-            lastWidth = width;
-            lastHeight = height;
-            return;
-        }
+        // Strict 16:9 based on width while user resizes.
+        const targetHeight = Math.round(width / PRESENTATION_RATIO);
+        const { w, h } = clampToViewport(width, targetHeight);
+        if (w === width && h === height) return;
 
         adjusting = true;
         tool.style.width = `${w}px`;
@@ -676,8 +666,6 @@ function enforcePresentationAspectRatio(tool) {
         tool.style.top = `${top}px`;
 
         requestAnimationFrame(() => {
-            lastWidth = w;
-            lastHeight = h;
             adjusting = false;
         });
     });
@@ -726,19 +714,35 @@ export function renderPresentationSettingsList() {
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.className = 'presentation-settings-name';
-        nameInput.value = item.name;
+        nameInput.value = item.name ?? 'Namnlös presentation';
         nameInput.addEventListener('change', () => updateSavedPresentationName(item.id, nameInput.value));
 
         const openBtn = document.createElement('button');
         openBtn.type = 'button';
-        openBtn.className = 'presentation-settings-btn';
-        openBtn.textContent = 'Öppna';
+        openBtn.className = 'presentation-settings-btn icon-btn';
+        openBtn.title = 'Öppna presentation';
+        openBtn.setAttribute('aria-label', 'Öppna presentation');
+        openBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <title>Öppna</title>
+                <path d="M8 5v14l11-7z"></path>
+            </svg>
+        `;
         openBtn.addEventListener('click', () => openTool('presentation', { launchUrl: item.url }));
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.className = 'presentation-settings-btn danger';
-        removeBtn.textContent = 'Ta bort';
+        removeBtn.className = 'presentation-settings-btn danger icon-btn';
+        removeBtn.title = 'Ta bort presentation';
+        removeBtn.setAttribute('aria-label', 'Ta bort presentation');
+        removeBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <title>Ta bort</title>
+                <path d="M3 6h18"></path>
+                <path d="M8 6V4h8v2"></path>
+                <path d="M7 6l1 14h8l1-14"></path>
+            </svg>
+        `;
         removeBtn.addEventListener('click', () => removeSavedPresentation(item.id));
 
         row.appendChild(nameInput);
