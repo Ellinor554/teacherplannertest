@@ -427,6 +427,30 @@ export function openTool(type, options = {}) {
         if (key) _saveToolsForKey(key);
     });
 
+    // Persist position/size whenever the user resizes the tool via the native handle.
+    // _resizeSaveRaf and _resizeIgnoreFirst are per-tool closures: each tool instance
+    // gets its own variables so concurrent tools don't interfere with each other.
+    if (typeof ResizeObserver !== 'undefined') {
+        let _resizeSaveRaf = null;
+        // Skip the first observation (initial layout) so we don't needlessly write on open
+        let _resizeIgnoreFirst = true;
+        const _containerRo = new ResizeObserver(() => {
+            if (_resizeIgnoreFirst) { _resizeIgnoreFirst = false; return; }
+            if (_resizeSaveRaf) cancelAnimationFrame(_resizeSaveRaf);
+            _resizeSaveRaf = requestAnimationFrame(() => {
+                const key = tool.dataset.lessonKey;
+                if (key) _saveToolsForKey(key);
+            });
+        });
+        _containerRo.observe(tool);
+        const _prevCleanup = tool._cleanup;
+        tool._cleanup = () => {
+            _containerRo.disconnect();
+            if (_resizeSaveRaf) cancelAnimationFrame(_resizeSaveRaf);
+            if (typeof _prevCleanup === 'function') _prevCleanup();
+        };
+    }
+
     // Initialise timer-specific UI after DOM insertion
     if (type === 'timer') {
         setTimeout(() => {

@@ -7,6 +7,7 @@ import { getSubjectColor, getMonday, checkIsPlanned } from './utils.js';
 import { sortPlannerData } from './data.js';
 import { makeDraggable } from './images.js';
 import { updateNotesButtonState } from './notes.js';
+import { saveAndClearLessonTools, restoreLessonTools } from './tools.js';
 
 // Callbacks injected by app.js to avoid circular dependency with lessons.js
 let _handleInput      = () => {};
@@ -114,7 +115,15 @@ export function renderDayDetail() {
                 </div>
                 <button onclick="window.deleteLesson(${lesson.id}, event)" class="text-lg opacity-30 hover:opacity-100 px-2 flex-shrink-0">&times;</button>
             </div>`;
-        btn.onclick = () => { setActiveLessonId(lesson.id); renderDayDetail(); };
+        btn.onclick = () => {
+            // No-op when clicking the already-active lesson: tools are already
+            // loaded and all state (drag, resize, text) is persisted on change.
+            if (lesson.id === activeLessonId) return;
+            saveAndClearLessonTools();
+            setActiveLessonId(lesson.id);
+            renderDayDetail();
+            restoreLessonTools(activeDayIndex, lesson.id);
+        };
         listContainer.appendChild(btn);
 
         if (isActive) {
