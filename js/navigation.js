@@ -35,6 +35,10 @@ export function changeView(view) {
     document.getElementById('view-day-detail').classList.add('hidden');
     document.getElementById('view-lasarsplanering').classList.add('hidden');
 
+    const isAcademic = view === 'lasarsplanering';
+    document.getElementById('week-nav').classList.toggle('hidden', isAcademic);
+    document.getElementById('academic-planning-title').classList.toggle('hidden', !isAcademic);
+
     if (view === 'oversikt') {
         document.getElementById('view-oversikt').classList.remove('hidden');
         document.getElementById('btn-oversikt').classList.add('active');
