@@ -449,16 +449,6 @@ function buildPresentationEmbedUrl(id) {
     return embed.toString();
 }
 
-function ensurePresentationEmbedMinimal(url) {
-    try {
-        const parsed = new URL(url);
-        parsed.searchParams.set('rm', 'minimal');
-        return parsed.toString();
-    } catch {
-        return url;
-    }
-}
-
 function loadPresentationData() {
     try {
         const raw = localStorage.getItem(PRESENTATION_STORAGE_KEY);
@@ -660,7 +650,7 @@ function initPresentationTool(tool, body, launchUrl) {
         controls.appendChild(saveBtn);
 
         const iframe = document.createElement('iframe');
-        iframe.src = ensurePresentationEmbedMinimal(normalized.embedUrl);
+        iframe.src = normalized.embedUrl;
         iframe.className = 'presentation-iframe';
         iframe.allowFullscreen = true;
         iframe.loading = 'lazy';
