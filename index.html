@@ -157,6 +157,16 @@
                 </svg>
                 Importera backup
             </button>
+            <div class="settings-divider"></div>
+            <div class="presentation-settings-panel">
+                <p class="presentation-settings-title">Sparade presentationer</p>
+                <div class="presentation-settings-add">
+                    <input id="settings-presentation-name" class="presentation-settings-input" type="text" placeholder="Namn (valfritt)">
+                    <input id="settings-presentation-url" class="presentation-settings-input" type="url" placeholder="Google Slides-länk">
+                    <button onclick="addSavedPresentationFromSettings()" class="presentation-settings-add-btn" type="button">Lägg till</button>
+                </div>
+                <div id="settings-presentation-list" class="presentation-settings-list"></div>
+            </div>
         </div>
     </div>
 </div>

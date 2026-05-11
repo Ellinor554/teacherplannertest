@@ -12,6 +12,17 @@ const RESIZE_ICON_LINES = [[9,1,1,9], [9,5,5,9]];
 // Counter used to cascade new tool windows so they don't overlap exactly.
 let _toolOffset = 0;
 
+const PRESENTATION_STORAGE_KEY = 'teacherplanner_presentation_links';
+const MAX_RECENT_PRESENTATIONS = 3;
+const PRESENTATION_RATIO = 16 / 9;
+const PRESENTATION_MIN_WIDTH = 420;
+const PRESENTATION_MIN_HEIGHT = Math.round(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
+
+let presentationLibrary = [];
+let presentationRecent = [];
+
+loadPresentationData();
+
 // SVG icon used as a visual resize-handle cue in every tool's bottom-right corner.
 function createResizeHintIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -44,6 +55,7 @@ export const TOOL_MENU = [
             { type: 'timer',     icon: '⏱️', label: 'Time Timer' },
             { type: 'stopwatch', icon: '🕐', label: 'Stoppur' },
             { type: 'textbox',   icon: '📝', label: 'Textruta' },
+            { type: 'presentation', icon: '📽️', label: 'Presentation' },
         ]
     },
     {
@@ -164,7 +176,7 @@ function _closeAllPopups() {
 
 // ── openTool ─────────────────────────────────────────────────────────────────
 
-export function openTool(type) {
+export function openTool(type, options = {}) {
     const label = _getLabel(type);
 
     // Build the floating container
@@ -233,6 +245,16 @@ export function openTool(type) {
 
         body.appendChild(textarea);
 
+        tool._cleanup = () => {
+            if (tool._resizeObserver) {
+                tool._resizeObserver.disconnect();
+                tool._resizeObserver = null;
+            }
+        };
+    } else if (type === 'presentation') {
+        body.classList.add('presentation-body');
+        tool.classList.add('presentation-tool');
+        initPresentationTool(tool, body, options.launchUrl || null);
         tool._cleanup = () => {
             if (tool._resizeObserver) {
                 tool._resizeObserver.disconnect();
@@ -321,7 +343,399 @@ export function openTool(type) {
             // Re-evaluate when text changes
             textarea.addEventListener('input', updateFont);
         }
+    } else if (type === 'presentation') {
+        setTimeout(() => {
+            const width = Math.min(window.innerWidth * 0.9, 960);
+            const height = Math.round(width / PRESENTATION_RATIO);
+            tool.style.width = `${Math.round(width)}px`;
+            tool.style.height = `${height}px`;
+            tool._resizeObserver = enforcePresentationAspectRatio(tool);
+        }, 0);
     }
+}
+
+function normalizePresentationUrl(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    let parsed;
+    try {
+        parsed = new URL(candidate);
+    } catch {
+        return null;
+    }
+    const match = parsed.pathname.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) return null;
+    const id = match[1];
+    return {
+        id,
+        editUrl: `https://docs.google.com/presentation/d/${id}/edit`,
+        embedUrl: `https://docs.google.com/presentation/d/${id}/embed`,
+    };
+}
+
+function loadPresentationData() {
+    try {
+        const raw = localStorage.getItem(PRESENTATION_STORAGE_KEY);
+        if (!raw) {
+            presentationLibrary = [];
+            presentationRecent = [];
+            return;
+        }
+        const parsed = JSON.parse(raw);
+        const saved = Array.isArray(parsed?.saved) ? parsed.saved : [];
+        const recent = Array.isArray(parsed?.recent) ? parsed.recent : [];
+        presentationLibrary = saved
+            .map((item) => {
+                const normalized = normalizePresentationUrl(item?.url || item?.editUrl || '');
+                if (!normalized) return null;
+                return {
+                    id: typeof item?.id === 'string' && item.id ? item.id : createPresentationId(),
+                    name: (item?.name || '').trim() || 'Namnlös presentation',
+                    url: normalized.editUrl,
+                };
+            })
+            .filter(Boolean);
+        presentationRecent = recent
+            .map(url => normalizePresentationUrl(url)?.editUrl || null)
+            .filter(Boolean)
+            .slice(0, MAX_RECENT_PRESENTATIONS);
+    } catch {
+        presentationLibrary = [];
+        presentationRecent = [];
+    }
+}
+
+function savePresentationData() {
+    localStorage.setItem(PRESENTATION_STORAGE_KEY, JSON.stringify({
+        saved: presentationLibrary,
+        recent: presentationRecent.slice(0, MAX_RECENT_PRESENTATIONS),
+    }));
+}
+
+function createPresentationId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function addPresentationToRecent(url) {
+    const normalized = normalizePresentationUrl(url);
+    if (!normalized) return;
+    presentationRecent = [normalized.editUrl, ...presentationRecent.filter(item => item !== normalized.editUrl)]
+        .slice(0, MAX_RECENT_PRESENTATIONS);
+    savePresentationData();
+    renderPresentationSettingsList();
+}
+
+function addSavedPresentation(name, url) {
+    const normalized = normalizePresentationUrl(url);
+    if (!normalized) return false;
+    const existing = presentationLibrary.find(item => item.url === normalized.editUrl);
+    if (existing) {
+        existing.name = name?.trim() || existing.name || 'Namnlös presentation';
+    } else {
+        presentationLibrary.unshift({
+            id: createPresentationId(),
+            name: name?.trim() || `Presentation ${presentationLibrary.length + 1}`,
+            url: normalized.editUrl,
+        });
+    }
+    savePresentationData();
+    renderPresentationSettingsList();
+    return true;
+}
+
+function removeSavedPresentation(id) {
+    presentationLibrary = presentationLibrary.filter(item => item.id !== id);
+    savePresentationData();
+    renderPresentationSettingsList();
+}
+
+function updateSavedPresentationName(id, name) {
+    const item = presentationLibrary.find(entry => entry.id === id);
+    if (!item) return;
+    item.name = name?.trim() || 'Namnlös presentation';
+    savePresentationData();
+}
+
+function initPresentationTool(tool, body, launchUrl) {
+    const state = { activeUrl: null };
+
+    const openPresentation = (url) => {
+        const normalized = normalizePresentationUrl(url);
+        if (!normalized) {
+            alert('Ogiltig Google Slides-länk.');
+            return;
+        }
+        state.activeUrl = normalized.editUrl;
+        addPresentationToRecent(normalized.editUrl);
+        renderActiveView(normalized);
+    };
+
+    const renderLibraryView = () => {
+        state.activeUrl = null;
+        body.textContent = '';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'presentation-library';
+
+        const title = document.createElement('h4');
+        title.className = 'presentation-section-title';
+        title.textContent = 'Library';
+
+        const form = document.createElement('form');
+        form.className = 'presentation-url-form';
+
+        const input = document.createElement('input');
+        input.type = 'url';
+        input.placeholder = 'Klistra in Google Slides-länk...';
+        input.className = 'presentation-input';
+        input.required = true;
+
+        const submit = document.createElement('button');
+        submit.type = 'submit';
+        submit.className = 'presentation-primary-btn';
+        submit.textContent = 'Öppna';
+
+        form.appendChild(input);
+        form.appendChild(submit);
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            openPresentation(input.value);
+        });
+
+        const savedSection = document.createElement('div');
+        savedSection.className = 'presentation-list-section';
+        const savedTitle = document.createElement('h5');
+        savedTitle.className = 'presentation-list-title';
+        savedTitle.textContent = 'Sparade presentationer';
+        savedSection.appendChild(savedTitle);
+        savedSection.appendChild(buildPresentationLaunchList(presentationLibrary.map(item => ({
+            key: item.id,
+            label: item.name,
+            subtitle: item.url,
+            url: item.url,
+        })), openPresentation, 'Inga sparade presentationer'));
+
+        const recentSection = document.createElement('div');
+        recentSection.className = 'presentation-list-section';
+        const recentTitle = document.createElement('h5');
+        recentTitle.className = 'presentation-list-title';
+        recentTitle.textContent = 'Senaste';
+        recentSection.appendChild(recentTitle);
+        recentSection.appendChild(buildPresentationLaunchList(
+            presentationRecent.map((url, idx) => ({
+                key: `${url}-${idx}`,
+                label: url,
+                subtitle: '',
+                url,
+            })),
+            openPresentation,
+            'Inga senaste länkar'
+        ));
+
+        wrapper.appendChild(title);
+        wrapper.appendChild(form);
+        wrapper.appendChild(savedSection);
+        wrapper.appendChild(recentSection);
+        body.appendChild(wrapper);
+    };
+
+    const renderActiveView = (normalized) => {
+        body.textContent = '';
+        const frameWrap = document.createElement('div');
+        frameWrap.className = 'presentation-frame-wrap';
+
+        const controls = document.createElement('div');
+        controls.className = 'presentation-controls';
+
+        const backBtn = document.createElement('button');
+        backBtn.className = 'presentation-overlay-btn';
+        backBtn.textContent = 'Bibliotek';
+        backBtn.addEventListener('click', renderLibraryView);
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'presentation-overlay-btn';
+        saveBtn.textContent = 'Spara';
+        saveBtn.addEventListener('click', () => {
+            const defaultName = `Presentation ${presentationLibrary.length + 1}`;
+            const name = prompt('Namn på presentationen:', defaultName);
+            if (name === null) return;
+            if (!addSavedPresentation(name, normalized.editUrl)) {
+                alert('Kunde inte spara länken.');
+            }
+        });
+
+        controls.appendChild(backBtn);
+        controls.appendChild(saveBtn);
+
+        const iframe = document.createElement('iframe');
+        iframe.src = normalized.embedUrl;
+        iframe.className = 'presentation-iframe';
+        iframe.allowFullscreen = true;
+        iframe.loading = 'lazy';
+        iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+        iframe.title = 'Google Slides Presentation';
+
+        frameWrap.appendChild(controls);
+        frameWrap.appendChild(iframe);
+        body.appendChild(frameWrap);
+    };
+
+    if (launchUrl) {
+        openPresentation(launchUrl);
+    } else {
+        renderLibraryView();
+    }
+}
+
+function buildPresentationLaunchList(items, onOpen, emptyText) {
+    const list = document.createElement('div');
+    list.className = 'presentation-launch-list';
+    if (!items.length) {
+        const empty = document.createElement('p');
+        empty.className = 'presentation-empty';
+        empty.textContent = emptyText;
+        list.appendChild(empty);
+        return list;
+    }
+    items.forEach(item => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'presentation-launch-item';
+        btn.addEventListener('click', () => onOpen(item.url));
+
+        const label = document.createElement('span');
+        label.className = 'presentation-launch-label';
+        label.textContent = item.label;
+        btn.appendChild(label);
+
+        if (item.subtitle) {
+            const sub = document.createElement('span');
+            sub.className = 'presentation-launch-subtitle';
+            sub.textContent = item.subtitle;
+            btn.appendChild(sub);
+        }
+        list.appendChild(btn);
+    });
+    return list;
+}
+
+function enforcePresentationAspectRatio(tool) {
+    if (typeof ResizeObserver === 'undefined') return null;
+    let adjusting = false;
+    let lastWidth = tool.offsetWidth;
+    let lastHeight = tool.offsetHeight;
+
+    const clampToViewport = (width, height) => {
+        const maxWidth = Math.floor(window.innerWidth * 0.95);
+        const maxHeight = Math.floor(window.innerHeight * 0.95);
+        let w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(width, maxWidth));
+        let h = Math.round(w / PRESENTATION_RATIO);
+        if (h > maxHeight) {
+            h = Math.max(PRESENTATION_MIN_HEIGHT, maxHeight);
+            w = Math.round(h * PRESENTATION_RATIO);
+        }
+        return { w, h };
+    };
+
+    const ro = new ResizeObserver(() => {
+        if (adjusting) return;
+        const width = tool.offsetWidth;
+        const height = tool.offsetHeight;
+        if (!width || !height) return;
+
+        let nextWidth;
+        if (Math.abs(width - lastWidth) >= Math.abs(height - lastHeight)) {
+            nextWidth = width;
+        } else {
+            nextWidth = Math.round(height * PRESENTATION_RATIO);
+        }
+        const { w, h } = clampToViewport(nextWidth, Math.round(nextWidth / PRESENTATION_RATIO));
+        const currentRatioError = Math.abs(width / height - PRESENTATION_RATIO);
+        if (w === width && h === height && currentRatioError < 0.01) {
+            lastWidth = width;
+            lastHeight = height;
+            return;
+        }
+
+        adjusting = true;
+        tool.style.width = `${w}px`;
+        tool.style.height = `${h}px`;
+
+        const left = Math.max(0, Math.min(tool.offsetLeft, window.innerWidth - w));
+        const top = Math.max(0, Math.min(tool.offsetTop, window.innerHeight - h));
+        tool.style.left = `${left}px`;
+        tool.style.top = `${top}px`;
+
+        requestAnimationFrame(() => {
+            lastWidth = w;
+            lastHeight = h;
+            adjusting = false;
+        });
+    });
+    ro.observe(tool);
+    return ro;
+}
+
+export function addSavedPresentationFromSettings() {
+    const nameInput = document.getElementById('settings-presentation-name');
+    const urlInput = document.getElementById('settings-presentation-url');
+    if (!urlInput) return;
+    const ok = addSavedPresentation(nameInput?.value || '', urlInput.value || '');
+    if (!ok) {
+        alert('Ogiltig Google Slides-länk.');
+        return;
+    }
+    if (nameInput) nameInput.value = '';
+    urlInput.value = '';
+}
+
+export function renderPresentationSettingsList() {
+    const list = document.getElementById('settings-presentation-list');
+    if (!list) return;
+    list.textContent = '';
+    if (!presentationLibrary.length) {
+        const empty = document.createElement('p');
+        empty.className = 'presentation-settings-empty';
+        empty.textContent = 'Inga sparade presentationer';
+        list.appendChild(empty);
+        return;
+    }
+
+    presentationLibrary.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'presentation-settings-row';
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'presentation-settings-name';
+        nameInput.value = item.name;
+        nameInput.addEventListener('change', () => updateSavedPresentationName(item.id, nameInput.value));
+
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'presentation-settings-btn';
+        openBtn.textContent = 'Öppna';
+        openBtn.addEventListener('click', () => openTool('presentation', { launchUrl: item.url }));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'presentation-settings-btn danger';
+        removeBtn.textContent = 'Ta bort';
+        removeBtn.addEventListener('click', () => removeSavedPresentation(item.id));
+
+        row.appendChild(nameInput);
+        row.appendChild(openBtn);
+        row.appendChild(removeBtn);
+        list.appendChild(row);
+    });
+}
+
+export function initPresentationSettings() {
+    loadPresentationData();
+    renderPresentationSettingsList();
 }
 
 /** Close a specific floating tool, cleaning up any running intervals. */

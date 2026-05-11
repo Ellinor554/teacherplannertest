@@ -13,7 +13,7 @@ import {
     openTool, closeTool, closeFloatingTool,
     startTimer, pauseTimer, resetTimer,
     startStopwatch, pauseStopwatch, resetStopwatch,
-    buildToolLauncher
+    buildToolLauncher, addSavedPresentationFromSettings, initPresentationSettings
 } from './tools.js';
 import {
     updateClock, toggleSidebar, toggleFullscreen,
@@ -73,6 +73,7 @@ window.closeTodoPanel      = closeTodoPanel;
 window.toggleTodoDone      = toggleTodoDone;
 window.deleteTodoItem      = deleteTodoItem;
 window.toggleCompletedSection = toggleCompletedSection;
+window.addSavedPresentationFromSettings = addSavedPresentationFromSettings;
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 window.onload = () => {
@@ -90,6 +91,7 @@ window.onload = () => {
 
     // Build the categorised Tool Launcher
     buildToolLauncher(document.getElementById('tool-launcher-categories'));
+    initPresentationSettings();
 
     updateFileStatus('localStorage (ingen diskfil kopplad)');
 
