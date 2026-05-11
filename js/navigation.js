@@ -5,6 +5,7 @@ import {
 import { ensureWeekExists } from './data.js';
 import { saveData } from './persistence.js';
 import { renderOversikt, renderDayDetail, renderFutureWeeks } from './render.js';
+import { saveAndClearLessonTools, restoreLessonTools } from './tools.js';
 
 export function refreshUI() {
     document.getElementById('current-week-display').innerText = currentWeek;
@@ -17,7 +18,10 @@ export function refreshUI() {
 export function changeView(view) {
     setActiveView(view);
 
-    // Remove all open floating tools (running timers/stopwatches are cleaned up via _cleanup)
+    // Save and remove lesson-specific tools before clearing the view
+    saveAndClearLessonTools();
+
+    // Remove remaining (non-lesson) floating tools
     document.querySelectorAll('.floating-tool').forEach(el => {
         if (typeof el._cleanup === 'function') el._cleanup();
         el.remove();
@@ -64,6 +68,7 @@ export function goToLesson(dayIdx, lessonId) {
     const viewName = ['mandag', 'tisdag', 'onsdag', 'torsdag', 'fredag'][dayIdx];
     setActiveLessonId(lessonId);
     changeView(viewName);
+    restoreLessonTools(dayIdx, lessonId);
 }
 
 // Used by lessons.js to refresh the detail panel without importing render.js directly
