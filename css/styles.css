@@ -547,9 +547,9 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 }
 .floating-tool-body.presentation-body {
     position: relative;
-    padding: 0;
+    padding: 0 !important;
     overflow: hidden;
-    background: #f9f8f6;
+    background: black;
 }
 .presentation-library {
     height: 100%;
@@ -642,6 +642,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     overflow: hidden;
     margin: 0;
     padding: 0;
+    background: black;
 }
 .presentation-controls {
     position: absolute;

@@ -271,6 +271,14 @@ export function openTool(type, options = {}) {
                 window.removeEventListener('resize', tool._presentationWindowResizeListener);
                 tool._presentationWindowResizeListener = null;
             }
+            if (tool._presentationMouseupListener) {
+                window.removeEventListener('mouseup', tool._presentationMouseupListener);
+                tool._presentationMouseupListener = null;
+            }
+            if (tool._presentationTouchendListener) {
+                window.removeEventListener('touchend', tool._presentationTouchendListener);
+                tool._presentationTouchendListener = null;
+            }
         };
     }
 
@@ -641,6 +649,9 @@ function buildPresentationLaunchList(items, onOpen, emptyText) {
 function enforcePresentationAspectRatio(tool) {
     if (typeof ResizeObserver === 'undefined') return null;
     let adjusting = false;
+    let lastWidth = tool.offsetWidth || PRESENTATION_MIN_WIDTH;
+    let lastHeight = tool.offsetHeight || Math.round(lastWidth / PRESENTATION_RATIO);
+    let pendingResizeFinishRefresh = false;
 
     const queueRefresh = () => {
         if (tool._presentationResizeDebounce) clearTimeout(tool._presentationResizeDebounce);
@@ -650,30 +661,52 @@ function enforcePresentationAspectRatio(tool) {
         }, 120);
     };
 
-    const clampToViewport = (width) => {
+    const clampToViewport = (size, lockBy = 'width') => {
         const maxWidth = Math.floor(window.innerWidth * 0.95);
         const maxHeight = Math.floor(window.innerHeight * 0.95);
-        let w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(width, maxWidth));
-        let h = Math.round(w / PRESENTATION_RATIO);
+        let w;
+        let h;
+        if (lockBy === 'height') {
+            h = Math.max(PRESENTATION_MIN_HEIGHT, Math.min(size, maxHeight));
+            w = Math.round(h * PRESENTATION_RATIO);
+        } else {
+            w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(size, maxWidth));
+            h = Math.round(w / PRESENTATION_RATIO);
+        }
         if (h > maxHeight) {
             h = Math.max(PRESENTATION_MIN_HEIGHT, maxHeight);
             w = Math.round(h * PRESENTATION_RATIO);
         }
+        if (w > maxWidth) {
+            w = Math.max(PRESENTATION_MIN_WIDTH, maxWidth);
+            h = Math.round(w / PRESENTATION_RATIO);
+        }
         return { w, h };
     };
 
-    const enforceSize = (requestedWidth) => {
-        const { w, h } = clampToViewport(requestedWidth);
-        if (w === tool.offsetWidth && h === tool.offsetHeight) return;
+    const enforceSize = (requestedWidth, requestedHeight) => {
+        const widthDelta = Math.abs((requestedWidth || 0) - lastWidth);
+        const heightDelta = Math.abs((requestedHeight || 0) - lastHeight);
+        const lockBy = heightDelta > widthDelta ? 'height' : 'width';
+        const requestedPrimarySize = lockBy === 'height' ? requestedHeight : requestedWidth;
+        const { w, h } = clampToViewport(requestedPrimarySize, lockBy);
+        if (w === tool.offsetWidth && h === tool.offsetHeight) {
+            lastWidth = w;
+            lastHeight = h;
+            return;
+        }
 
         adjusting = true;
         tool.style.width = `${w}px`;
         tool.style.height = `${h}px`;
+        pendingResizeFinishRefresh = true;
 
         const left = Math.max(0, Math.min(tool.offsetLeft, window.innerWidth - w));
         const top = Math.max(0, Math.min(tool.offsetTop, window.innerHeight - h));
         tool.style.left = `${left}px`;
         tool.style.top = `${top}px`;
+        lastWidth = w;
+        lastHeight = h;
 
         requestAnimationFrame(() => {
             adjusting = false;
@@ -683,24 +716,46 @@ function enforcePresentationAspectRatio(tool) {
     const ro = new ResizeObserver(() => {
         if (adjusting) return;
         const width = tool.offsetWidth;
-        if (!width) return;
-        enforceSize(width);
+        const height = tool.offsetHeight;
+        if (!width || !height) return;
+        enforceSize(width, height);
         queueRefresh();
     });
     ro.observe(tool);
     const handleWindowResize = () => {
         if (adjusting) return;
-        enforceSize(tool.offsetWidth || PRESENTATION_MIN_WIDTH);
+        enforceSize(tool.offsetWidth || PRESENTATION_MIN_WIDTH, tool.offsetHeight || PRESENTATION_MIN_HEIGHT);
         queueRefresh();
     };
+    const handleMouseup = () => {
+        if (!pendingResizeFinishRefresh) return;
+        pendingResizeFinishRefresh = false;
+        refreshPresentationLayout(tool, true);
+    };
+    const handleTouchend = () => {
+        if (!pendingResizeFinishRefresh) return;
+        pendingResizeFinishRefresh = false;
+        refreshPresentationLayout(tool, true);
+    };
     window.addEventListener('resize', handleWindowResize, { passive: true });
+    window.addEventListener('mouseup', handleMouseup);
+    window.addEventListener('touchend', handleTouchend, { passive: true });
     tool._presentationWindowResizeListener = handleWindowResize;
+    tool._presentationMouseupListener = handleMouseup;
+    tool._presentationTouchendListener = handleTouchend;
     return ro;
 }
 
-function refreshPresentationLayout(tool) {
+function refreshPresentationLayout(tool, refreshSource = false) {
     const frameWrap = tool.querySelector('.presentation-frame-wrap');
     if (!frameWrap) return;
+    if (refreshSource) {
+        const iframe = tool.querySelector('.presentation-iframe');
+        if (iframe?.src) {
+            const srcToReload = iframe.src;
+            iframe.src = srcToReload;
+        }
+    }
     const prevTransform = frameWrap.style.transform;
     frameWrap.style.transform = PRESENTATION_REFLOW_TRANSFORM;
     // Workaround: Google Slides embed can stay visually "frozen" after drag-resize;
