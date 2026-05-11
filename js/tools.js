@@ -711,9 +711,11 @@ export function renderPresentationSettingsList() {
         const row = document.createElement('div');
         row.className = 'presentation-settings-row';
 
-        const name = document.createElement('span');
-        name.className = 'presentation-settings-name';
-        name.textContent = item.name || 'Namnlös presentation';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'presentation-settings-name';
+        nameInput.value = item.name || 'Namnlös presentation';
+        nameInput.addEventListener('change', () => updateSavedPresentationName(item.id, nameInput.value));
 
         const openBtn = document.createElement('button');
         openBtn.type = 'button';
@@ -741,7 +743,7 @@ export function renderPresentationSettingsList() {
         `;
         removeBtn.addEventListener('click', () => removeSavedPresentation(item.id));
 
-        row.appendChild(name);
+        row.appendChild(nameInput);
         row.appendChild(openBtn);
         row.appendChild(removeBtn);
         list.appendChild(row);
