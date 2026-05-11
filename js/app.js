@@ -20,6 +20,10 @@ import {
     toggleBottomToolbar, updateFontSize, toggleSplit, toggleSettingsMenu
 } from './ui.js';
 import {
+    initAcademicPlanning, renderAcademicPlanningView,
+    openPlanningPresentationPicker, closePlanningPresentationPicker
+} from './academicPlanning.js';
+import {
     initTodo, toggleTodoPanel, closeTodoPanel,
     toggleTodoDone, deleteTodoItem, toggleCompletedSection
 } from './todo.js';
@@ -74,6 +78,8 @@ window.toggleTodoDone      = toggleTodoDone;
 window.deleteTodoItem      = deleteTodoItem;
 window.toggleCompletedSection = toggleCompletedSection;
 window.addSavedPresentationFromSettings = addSavedPresentationFromSettings;
+window.openPlanningPresentationPicker = openPlanningPresentationPicker;
+window.closePlanningPresentationPicker = closePlanningPresentationPicker;
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 window.onload = () => {
@@ -92,6 +98,8 @@ window.onload = () => {
     // Build the categorised Tool Launcher
     buildToolLauncher(document.getElementById('tool-launcher-categories'));
     initPresentationSettings();
+    initAcademicPlanning();
+    renderAcademicPlanningView();
 
     updateFileStatus('localStorage (ingen diskfil kopplad)');
 

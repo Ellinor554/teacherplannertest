@@ -23,6 +23,7 @@
         <button onclick="changeView('onsdag')" id="btn-onsdag" class="sidebar-btn">Onsdag</button>
         <button onclick="changeView('torsdag')" id="btn-torsdag" class="sidebar-btn">Torsdag</button>
         <button onclick="changeView('fredag')" id="btn-fredag" class="sidebar-btn">Fredag</button>
+        <button onclick="changeView('lasarsplanering')" id="btn-lasarsplanering" class="sidebar-btn sidebar-btn-separator">Läsårsplanering</button>
     </div>
     <div class="flex-1 flex flex-col p-6 overflow-hidden">
         <div class="flex justify-between items-center mb-6">
@@ -54,6 +55,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick="addLessonPrompt()" class="bg-[#9eb19a] text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#8da089] transition-all transform hover:scale-105">+ Ny lektion</button>
+                        <button onclick="openPlanningPresentationPicker()" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#92756e] transition-all transform hover:scale-105">Hämta från planering</button>
                         <button onclick="toggleSidebar()" title="Dölj sidopanel" class="bg-[#c8b49a] text-white px-3 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-[#b8a48a] transition-all transform hover:scale-105">◀ Dölj</button>
                     </div>
                 </div>
@@ -94,6 +96,7 @@
                 </div>
             </div>
         </div>
+        <div id="view-lasarsplanering" class="hidden h-full overflow-hidden"></div>
     </div>
 </div>
 
@@ -191,6 +194,19 @@
             <span class="text-[10px] text-gray-400 italic">🔒 Visas bara för läraren – ej i elevvy</span>
             <button onclick="savePrivateNotes(); closeNotesModal();" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#92756e] transition-all">Spara &amp; stäng</button>
         </div>
+    </div>
+</div>
+
+<div id="planning-presentation-modal" class="notes-modal hidden" onclick="closePlanningPresentationPicker()">
+    <div class="notes-modal-content planning-picker-modal" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="font-bold text-[#a6857e] uppercase text-xs tracking-widest">Hämta från planering</h3>
+                <p id="planning-presentation-modal-subject" class="text-sm text-gray-500 mt-1"></p>
+            </div>
+            <button onclick="closePlanningPresentationPicker()" class="text-gray-400 hover:text-black font-bold text-xl leading-none">&times;</button>
+        </div>
+        <div id="planning-presentation-modal-list" class="planning-picker-list custom-scrollbar"></div>
     </div>
 </div>
 
