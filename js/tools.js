@@ -364,8 +364,10 @@ export function openTool(type, options = {}) {
         }
     } else if (type === 'presentation') {
         setTimeout(() => {
+            const header = tool.querySelector('.floating-tool-header');
+            const headerHeight = header ? header.offsetHeight : 0;
             const width = Math.min(window.innerWidth * 0.9, 960);
-            const height = Math.round(width / PRESENTATION_RATIO);
+            const height = Math.round(width / PRESENTATION_RATIO) + headerHeight;
             tool.style.width = `${Math.round(width)}px`;
             tool.style.height = `${height}px`;
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
@@ -649,8 +651,11 @@ function buildPresentationLaunchList(items, onOpen, emptyText) {
 function enforcePresentationAspectRatio(tool) {
     if (typeof ResizeObserver === 'undefined') return null;
     let adjusting = false;
+    const header = tool.querySelector('.floating-tool-header');
+    const headerHeight = header ? header.offsetHeight : 0;
+    const minToolHeight = PRESENTATION_MIN_HEIGHT + headerHeight;
     let lastWidth = tool.offsetWidth || PRESENTATION_MIN_WIDTH;
-    let lastHeight = tool.offsetHeight || Math.round(lastWidth / PRESENTATION_RATIO);
+    let lastHeight = tool.offsetHeight || Math.round(lastWidth / PRESENTATION_RATIO) + headerHeight;
     let pendingResizeFinishRefresh = false;
 
     const queueRefresh = () => {
@@ -667,19 +672,19 @@ function enforcePresentationAspectRatio(tool) {
         let w;
         let h;
         if (lockBy === 'height') {
-            h = Math.max(PRESENTATION_MIN_HEIGHT, Math.min(size, maxHeight));
-            w = Math.round(h * PRESENTATION_RATIO);
+            h = Math.max(minToolHeight, Math.min(size, maxHeight));
+            w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
         } else {
             w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(size, maxWidth));
-            h = Math.round(w / PRESENTATION_RATIO);
+            h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
         }
         if (h > maxHeight) {
-            h = Math.max(PRESENTATION_MIN_HEIGHT, maxHeight);
-            w = Math.round(h * PRESENTATION_RATIO);
+            h = Math.max(minToolHeight, maxHeight);
+            w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
         }
         if (w > maxWidth) {
             w = Math.max(PRESENTATION_MIN_WIDTH, maxWidth);
-            h = Math.round(w / PRESENTATION_RATIO);
+            h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
         }
         return { w, h };
     };
