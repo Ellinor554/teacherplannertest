@@ -373,7 +373,7 @@ function normalizePresentationUrl(raw) {
     return {
         id,
         editUrl: `https://docs.google.com/presentation/d/${id}/edit`,
-        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal`,
+        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal&start=false&loop=false&delayms=3000`,
     };
 }
 
