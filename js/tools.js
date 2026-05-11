@@ -439,8 +439,14 @@ function normalizePresentationUrl(raw) {
     return {
         id,
         editUrl: `https://docs.google.com/presentation/d/${id}/edit`,
-        embedUrl: `https://docs.google.com/presentation/d/${id}/embed?rm=minimal`,
+        embedUrl: buildPresentationEmbedUrl(id),
     };
+}
+
+function buildPresentationEmbedUrl(id) {
+    const embed = new URL(`https://docs.google.com/presentation/d/${id}/embed`);
+    embed.searchParams.set('rm', 'minimal');
+    return embed.toString();
 }
 
 function loadPresentationData() {
