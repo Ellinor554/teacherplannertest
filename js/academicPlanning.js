@@ -28,6 +28,17 @@ const MASTER_SECTION_DEFINITIONS = [
     { key: 'reactions', title: 'Materia och kemiska reaktioner' },
 ];
 
+function getDefaultSectionKey() {
+    return MASTER_SECTION_DEFINITIONS[0]?.key || 'section-1';
+}
+
+function createDefaultMasterSections() {
+    if (!MASTER_SECTION_DEFINITIONS.length) {
+        return [{ key: 'section-1', title: 'Del 1', items: [] }];
+    }
+    return MASTER_SECTION_DEFINITIONS.map((def) => ({ key: def.key, title: def.title, items: [] }));
+}
+
 function createId(prefix) {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -63,11 +74,11 @@ function getSectionByKey(subject, sectionKey) {
     return subject.masterSections.find((section) => section.key === sectionKey) || null;
 }
 
-function upsertMasterListItem(subject, text, done = false, preferredSectionKey = MASTER_SECTION_DEFINITIONS[0].key) {
+function upsertMasterListItem(subject, text, done = false, preferredSectionKey = getDefaultSectionKey()) {
     const normalizedText = normalizeCoreContentText(text);
     if (!normalizedText) return null;
 
-    if (!Array.isArray(subject.masterSections)) subject.masterSections = [];
+    if (!Array.isArray(subject.masterSections) || !subject.masterSections.length) subject.masterSections = createDefaultMasterSections();
     const existing = getAllMasterItems(subject).find((item) => normalizeCoreContentText(item.text).toLowerCase() === normalizedText.toLowerCase());
     if (existing) {
         existing.done = Boolean(existing.done || done);
@@ -102,12 +113,17 @@ function ensureSubjectDefaults(subject) {
     }, []);
     subject.masterList = [];
 
-    if (!Array.isArray(subject.masterSections)) {
-        subject.masterSections = MASTER_SECTION_DEFINITIONS.map((def) => ({ key: def.key, title: def.title, items: [] }));
-    }
+    const existingSections = Array.isArray(subject.masterSections)
+        ? subject.masterSections
+        : (subject.masterSections && typeof subject.masterSections === 'object'
+            ? Object.values(subject.masterSections)
+            : []);
+    const baselineSections = MASTER_SECTION_DEFINITIONS.length
+        ? MASTER_SECTION_DEFINITIONS
+        : [{ key: 'section-1', title: 'Del 1' }];
 
-    const normalizedSections = MASTER_SECTION_DEFINITIONS.map((def) => {
-        const existingSection = subject.masterSections.find((entry) => entry?.key === def.key);
+    const normalizedSections = baselineSections.map((def) => {
+        const existingSection = existingSections.find((entry) => entry?.key === def.key);
         const items = [];
         (Array.isArray(existingSection?.items) ? existingSection.items : []).forEach((entry) => {
             const text = normalizeCoreContentText(entry?.text);
@@ -609,7 +625,7 @@ function renderCurriculumMap() {
                     upBtn.type = 'button';
                     upBtn.className = 'curriculum-map-sort-btn';
                     upBtn.textContent = '↑';
-                    upBtn.disabled = index === 0;
+                    upBtn.disabled = index <= 0 || !(section.items || []).length;
                     upBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         moveMasterItem(selectedSubjectKey, section.key, item.id, 'up');
