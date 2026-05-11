@@ -682,6 +682,8 @@ function buildCoreContentSection(area, subject) {
         const placeholder = document.createElement('option');
         placeholder.value = '';
         placeholder.textContent = availableItems.length ? 'Välj från kursplan' : 'Alla punkter är redan valda';
+        placeholder.disabled = true;
+        placeholder.selected = true;
         select.appendChild(placeholder);
 
         availableItems.forEach((item) => {
