@@ -427,7 +427,9 @@ export function openTool(type, options = {}) {
         if (key) _saveToolsForKey(key);
     });
 
-    // Persist position/size whenever the user resizes the tool via the native handle
+    // Persist position/size whenever the user resizes the tool via the native handle.
+    // _resizeSaveRaf and _resizeIgnoreFirst are per-tool closures: each tool instance
+    // gets its own variables so concurrent tools don't interfere with each other.
     if (typeof ResizeObserver !== 'undefined') {
         let _resizeSaveRaf = null;
         // Skip the first observation (initial layout) so we don't needlessly write on open
