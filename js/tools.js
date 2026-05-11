@@ -15,8 +15,9 @@ let _toolOffset = 0;
 const PRESENTATION_STORAGE_KEY = 'teacherplanner_presentation_links';
 const MAX_RECENT_PRESENTATIONS = 3;
 const PRESENTATION_RATIO = 16 / 9;
+const PRESENTATION_RATIO_TOLERANCE = 0.01;
 const PRESENTATION_MIN_WIDTH = 420;
-const PRESENTATION_MIN_HEIGHT = Math.round(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
+const PRESENTATION_MIN_HEIGHT = Math.ceil(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
 
 let presentationLibrary = [];
 let presentationRecent = [];
@@ -437,7 +438,7 @@ function addSavedPresentation(name, url) {
     } else {
         presentationLibrary.unshift({
             id: createPresentationId(),
-            name: name?.trim() || `Presentation ${presentationLibrary.length + 1}`,
+            name: name?.trim() || getNextDefaultPresentationName(),
             url: normalized.editUrl,
         });
     }
@@ -482,7 +483,7 @@ function initPresentationTool(tool, body, launchUrl) {
 
         const title = document.createElement('h4');
         title.className = 'presentation-section-title';
-        title.textContent = 'Library';
+        title.textContent = 'Bibliotek';
 
         const form = document.createElement('form');
         form.className = 'presentation-url-form';
@@ -559,7 +560,7 @@ function initPresentationTool(tool, body, launchUrl) {
         saveBtn.className = 'presentation-overlay-btn';
         saveBtn.textContent = 'Spara';
         saveBtn.addEventListener('click', () => {
-            const defaultName = `Presentation ${presentationLibrary.length + 1}`;
+            const defaultName = getNextDefaultPresentationName();
             const name = prompt('Namn på presentationen:', defaultName);
             if (name === null) return;
             if (!addSavedPresentation(name, normalized.editUrl)) {
@@ -654,7 +655,7 @@ function enforcePresentationAspectRatio(tool) {
         }
         const { w, h } = clampToViewport(nextWidth, Math.round(nextWidth / PRESENTATION_RATIO));
         const currentRatioError = Math.abs(width / height - PRESENTATION_RATIO);
-        if (w === width && h === height && currentRatioError < 0.01) {
+        if (w === width && h === height && currentRatioError < PRESENTATION_RATIO_TOLERANCE) {
             lastWidth = width;
             lastHeight = height;
             return;
@@ -677,6 +678,15 @@ function enforcePresentationAspectRatio(tool) {
     });
     ro.observe(tool);
     return ro;
+}
+
+function getNextDefaultPresentationName() {
+    let max = 0;
+    presentationLibrary.forEach((item) => {
+        const match = String(item?.name || '').match(/^Presentation\s+(\d+)$/i);
+        if (match) max = Math.max(max, Number(match[1]));
+    });
+    return `Presentation ${max + 1}`;
 }
 
 export function addSavedPresentationFromSettings() {
