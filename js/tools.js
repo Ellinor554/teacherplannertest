@@ -15,6 +15,7 @@ let _toolOffset = 0;
 const PRESENTATION_STORAGE_KEY = 'teacherplanner_presentation_links';
 const MAX_RECENT_PRESENTATIONS = 3;
 const PRESENTATION_RATIO = 16 / 9;
+const PRESENTATION_HEIGHT_PER_WIDTH = 9 / 16;
 const PRESENTATION_MIN_WIDTH = 420;
 const PRESENTATION_MIN_HEIGHT = Math.ceil(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
 
@@ -262,6 +263,10 @@ export function openTool(type, options = {}) {
                 tool._resizeObserver.disconnect();
                 tool._resizeObserver = null;
             }
+            if (tool._presentationResizeDebounce) {
+                clearTimeout(tool._presentationResizeDebounce);
+                tool._presentationResizeDebounce = null;
+            }
         };
     }
 
@@ -348,7 +353,7 @@ export function openTool(type, options = {}) {
     } else if (type === 'presentation') {
         setTimeout(() => {
             const width = Math.min(window.innerWidth * 0.9, 960);
-            const height = Math.round(width / PRESENTATION_RATIO);
+            const height = Math.round(width * PRESENTATION_HEIGHT_PER_WIDTH);
             tool.style.width = `${Math.round(width)}px`;
             tool.style.height = `${height}px`;
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
@@ -633,14 +638,22 @@ function enforcePresentationAspectRatio(tool) {
     if (typeof ResizeObserver === 'undefined') return null;
     let adjusting = false;
 
-    const clampToViewport = (width, height) => {
+    const queueRefresh = () => {
+        if (tool._presentationResizeDebounce) clearTimeout(tool._presentationResizeDebounce);
+        tool._presentationResizeDebounce = setTimeout(() => {
+            tool._presentationResizeDebounce = null;
+            refreshPresentationLayout(tool);
+        }, 120);
+    };
+
+    const clampToViewport = (width) => {
         const maxWidth = Math.floor(window.innerWidth * 0.95);
         const maxHeight = Math.floor(window.innerHeight * 0.95);
         let w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(width, maxWidth));
-        let h = Math.round(w / PRESENTATION_RATIO);
+        let h = Math.round(w * PRESENTATION_HEIGHT_PER_WIDTH);
         if (h > maxHeight) {
             h = Math.max(PRESENTATION_MIN_HEIGHT, maxHeight);
-            w = Math.round(h * PRESENTATION_RATIO);
+            w = Math.round(h / PRESENTATION_HEIGHT_PER_WIDTH);
         }
         return { w, h };
     };
@@ -650,10 +663,11 @@ function enforcePresentationAspectRatio(tool) {
         const width = tool.offsetWidth;
         const height = tool.offsetHeight;
         if (!width || !height) return;
+        queueRefresh();
 
         // Strict 16:9 based on width while user resizes.
-        const targetHeight = Math.round(width / PRESENTATION_RATIO);
-        const { w, h } = clampToViewport(width, targetHeight);
+        const targetHeight = Math.round(width * PRESENTATION_HEIGHT_PER_WIDTH);
+        const { w, h } = clampToViewport(width);
         if (w === width && h === height) return;
 
         adjusting = true;
@@ -671,6 +685,15 @@ function enforcePresentationAspectRatio(tool) {
     });
     ro.observe(tool);
     return ro;
+}
+
+function refreshPresentationLayout(tool) {
+    const frameWrap = tool.querySelector('.presentation-frame-wrap');
+    if (!frameWrap) return;
+    const prevTransform = frameWrap.style.transform;
+    frameWrap.style.transform = 'translateZ(0)';
+    void frameWrap.offsetWidth;
+    frameWrap.style.transform = prevTransform;
 }
 
 function getNextDefaultPresentationName() {
