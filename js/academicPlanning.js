@@ -311,7 +311,8 @@ function removeCoreContentSelection(subjectKey, areaId, itemId) {
     if (!area) return;
     ensureAreaDefaults(area);
     const item = getSubject(subjectKey).masterList.find((entry) => entry.id === itemId);
-    if (!confirm(`Är du säker på att du vill ta bort "${item?.text || 'denna punkt'}" från området?`)) return;
+    if (!item) return;
+    if (!confirm(`Är du säker på att du vill ta bort "${item.text}" från området?`)) return;
     area.coreContentIds = area.coreContentIds.filter((id) => id !== itemId);
     saveAcademicData();
     renderAcademicPlanningView();
