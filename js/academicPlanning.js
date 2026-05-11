@@ -1,0 +1,647 @@
+import { SUBJECT_COLORS } from './config.js';
+import {
+    plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId
+} from './state.js';
+import { openTool } from './tools.js';
+
+const ACADEMIC_STORAGE_KEY = 'teacherplanner_academic_year_planning';
+
+const SUBJECT_DEFINITIONS = [
+    { key: 'matte', label: 'Matte', icon: 'M', aliases: ['matte', 'matematik'], color: SUBJECT_COLORS.matte },
+    { key: 'svenska', label: 'Svenska', icon: 'Sv', aliases: ['svenska'], color: SUBJECT_COLORS.svenska },
+    { key: 'engelska', label: 'Engelska', icon: 'En', aliases: ['engelska'], color: SUBJECT_COLORS.engelska },
+    { key: 'biologi', label: 'Biologi', icon: 'Bi', aliases: ['biologi'], color: SUBJECT_COLORS.biologi },
+    { key: 'kemi', label: 'Kemi', icon: 'Ke', aliases: ['kemi'], color: SUBJECT_COLORS.kemi },
+    { key: 'fysik', label: 'Fysik', icon: 'Fy', aliases: ['fysik'], color: SUBJECT_COLORS.fysik },
+    { key: 'teknik', label: 'Teknik', icon: 'Te', aliases: ['teknik'], color: SUBJECT_COLORS.teknik },
+];
+
+let academicData = loadAcademicData();
+let selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
+let selectedAreaId = null;
+
+function createId(prefix) {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        return `${prefix}-${hex}`;
+    }
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function sanitizeWeek(value, fallback = 1) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(1, Math.min(52, parsed));
+}
+
+function loadAcademicData() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY) || '{}');
+        const subjects = parsed?.subjects && typeof parsed.subjects === 'object' ? parsed.subjects : {};
+        SUBJECT_DEFINITIONS.forEach((subject) => {
+            if (!subjects[subject.key] || !Array.isArray(subjects[subject.key].areas)) {
+                subjects[subject.key] = { areas: [] };
+            }
+        });
+        return { subjects };
+    } catch {
+        const subjects = {};
+        SUBJECT_DEFINITIONS.forEach((subject) => {
+            subjects[subject.key] = { areas: [] };
+        });
+        return { subjects };
+    }
+}
+
+function saveAcademicData() {
+    localStorage.setItem(ACADEMIC_STORAGE_KEY, JSON.stringify(academicData));
+}
+
+function getSubject(subjectKey) {
+    if (!academicData.subjects[subjectKey]) {
+        academicData.subjects[subjectKey] = { areas: [] };
+    }
+    return academicData.subjects[subjectKey];
+}
+
+function getAreaById(subjectKey, areaId) {
+    const subject = getSubject(subjectKey);
+    return subject.areas.find((area) => area.id === areaId) || null;
+}
+
+function getSortedAreas(subjectKey) {
+    const subject = getSubject(subjectKey);
+    return [...subject.areas].sort((a, b) => {
+        const aw = sanitizeWeek(a.startWeek, 1);
+        const bw = sanitizeWeek(b.startWeek, 1);
+        if (aw !== bw) return aw - bw;
+        return sanitizeWeek(a.endWeek, aw) - sanitizeWeek(b.endWeek, bw);
+    });
+}
+
+function normalizeSubjectToKey(subjectName) {
+    const value = String(subjectName || '').trim().toLowerCase();
+    if (!value) return null;
+    const direct = SUBJECT_DEFINITIONS.find((subject) => subject.aliases.some(alias => value.startsWith(alias)));
+    return direct ? direct.key : null;
+}
+
+function ensureSelection() {
+    const subject = getSubject(selectedSubjectKey);
+    if (!subject.areas.length) {
+        selectedAreaId = null;
+        return;
+    }
+    if (!selectedAreaId || !subject.areas.some((area) => area.id === selectedAreaId)) {
+        const first = getSortedAreas(selectedSubjectKey)[0];
+        selectedAreaId = first ? first.id : null;
+    }
+}
+
+function ensureAreaDefaults(area) {
+    if (!Array.isArray(area.presentations)) area.presentations = [];
+    if (!Array.isArray(area.videos)) area.videos = [];
+    if (!Array.isArray(area.coreContent)) area.coreContent = [];
+    if (typeof area.plan !== 'string') area.plan = '';
+}
+
+function addArea(subjectKey) {
+    const subject = getSubject(subjectKey);
+    const newArea = {
+        id: createId('area'),
+        title: 'Nytt område',
+        startWeek: 1,
+        endWeek: 1,
+        plan: '',
+        presentations: [],
+        videos: [],
+        coreContent: [],
+    };
+    subject.areas.push(newArea);
+    selectedAreaId = newArea.id;
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function deleteArea(subjectKey, areaId) {
+    if (!confirm('Är du säker?')) return;
+    const subject = getSubject(subjectKey);
+    subject.areas = subject.areas.filter((area) => area.id !== areaId);
+    if (selectedAreaId === areaId) selectedAreaId = null;
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function setAreaField(subjectKey, areaId, field, value, rerender = false) {
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    if (field === 'startWeek' || field === 'endWeek') {
+        area[field] = sanitizeWeek(value, field === 'endWeek' ? sanitizeWeek(area.startWeek, 1) : 1);
+    } else {
+        area[field] = value;
+    }
+    saveAcademicData();
+    if (rerender) renderAcademicPlanningView();
+}
+
+function addLink(subjectKey, areaId, kind, title, url) {
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    ensureAreaDefaults(area);
+    area[kind].push({
+        id: createId('link'),
+        title: (title || '').trim() || 'Namnlös',
+        url: (url || '').trim(),
+    });
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function deleteLink(subjectKey, areaId, kind, linkId) {
+    if (!confirm('Är du säker?')) return;
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    ensureAreaDefaults(area);
+    area[kind] = area[kind].filter((item) => item.id !== linkId);
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function setLinkField(subjectKey, areaId, kind, linkId, field, value) {
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    ensureAreaDefaults(area);
+    const link = area[kind].find((item) => item.id === linkId);
+    if (!link) return;
+    link[field] = value;
+    saveAcademicData();
+}
+
+function addCoreContent(subjectKey, areaId, text) {
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    ensureAreaDefaults(area);
+    area.coreContent.push({ id: createId('core'), text: text.trim(), done: false });
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function setCoreContentText(subjectKey, areaId, itemId, value) {
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    ensureAreaDefaults(area);
+    const item = area.coreContent.find((entry) => entry.id === itemId);
+    if (!item) return;
+    item.text = value;
+    saveAcademicData();
+}
+
+function toggleCoreContentDone(subjectKey, areaId, itemId) {
+    const area = getAreaById(subjectKey, areaId);
+    if (!area) return;
+    ensureAreaDefaults(area);
+    const item = area.coreContent.find((entry) => entry.id === itemId);
+    if (!item) return;
+    item.done = !item.done;
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function buildSubjectSidebar(container) {
+    const sidebar = document.createElement('div');
+    sidebar.className = 'academic-subject-sidebar custom-scrollbar';
+
+    SUBJECT_DEFINITIONS.forEach((subject) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'academic-subject-btn';
+        btn.classList.toggle('active', subject.key === selectedSubjectKey);
+        btn.style.setProperty('--subject-color', subject.color?.bg || '#a6857e');
+
+        const icon = document.createElement('span');
+        icon.className = 'academic-subject-icon';
+        icon.textContent = subject.icon;
+
+        const label = document.createElement('span');
+        label.className = 'academic-subject-label';
+        label.textContent = subject.label;
+
+        btn.appendChild(icon);
+        btn.appendChild(label);
+        btn.addEventListener('click', () => {
+            selectedSubjectKey = subject.key;
+            selectedAreaId = null;
+            renderAcademicPlanningView();
+        });
+        sidebar.appendChild(btn);
+    });
+
+    container.appendChild(sidebar);
+}
+
+function buildAreaPanel(container) {
+    const panel = document.createElement('div');
+    panel.className = 'academic-area-panel custom-scrollbar';
+
+    const header = document.createElement('div');
+    header.className = 'academic-panel-header';
+
+    const title = document.createElement('h2');
+    title.className = 'serif-title text-3xl';
+    title.textContent = 'Områden';
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'academic-add-btn';
+    addBtn.textContent = '+ Lägg till område';
+    addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
+
+    header.appendChild(title);
+    header.appendChild(addBtn);
+    panel.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'academic-area-list';
+
+    const areas = getSortedAreas(selectedSubjectKey);
+    areas.forEach((area) => {
+        ensureAreaDefaults(area);
+        const item = document.createElement('div');
+        item.className = 'academic-area-item';
+        if (area.id === selectedAreaId) item.classList.add('active');
+        item.addEventListener('click', () => {
+            selectedAreaId = area.id;
+            renderAcademicPlanningView();
+        });
+
+        const topRow = document.createElement('div');
+        topRow.className = 'academic-area-top';
+
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.className = 'academic-area-title';
+        titleInput.value = area.title || '';
+        titleInput.placeholder = 'Titel';
+        titleInput.addEventListener('click', (e) => e.stopPropagation());
+        titleInput.addEventListener('input', () => setAreaField(selectedSubjectKey, area.id, 'title', titleInput.value));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'academic-delete-btn';
+        deleteBtn.textContent = '×';
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteArea(selectedSubjectKey, area.id);
+        });
+
+        topRow.appendChild(titleInput);
+        topRow.appendChild(deleteBtn);
+
+        const weekRow = document.createElement('div');
+        weekRow.className = 'academic-week-row';
+
+        const startInput = document.createElement('input');
+        startInput.type = 'number';
+        startInput.min = '1';
+        startInput.max = '52';
+        startInput.value = sanitizeWeek(area.startWeek, 1);
+        startInput.className = 'academic-week-input';
+        startInput.addEventListener('click', (e) => e.stopPropagation());
+        startInput.addEventListener('change', () => setAreaField(selectedSubjectKey, area.id, 'startWeek', startInput.value, true));
+
+        const endInput = document.createElement('input');
+        endInput.type = 'number';
+        endInput.min = '1';
+        endInput.max = '52';
+        endInput.value = sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1));
+        endInput.className = 'academic-week-input';
+        endInput.addEventListener('click', (e) => e.stopPropagation());
+        endInput.addEventListener('change', () => setAreaField(selectedSubjectKey, area.id, 'endWeek', endInput.value, true));
+
+        const label = document.createElement('span');
+        label.className = 'academic-week-label';
+        label.textContent = `v. ${sanitizeWeek(area.startWeek, 1)}-${sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1))}`;
+
+        weekRow.appendChild(startInput);
+        weekRow.appendChild(document.createTextNode('–'));
+        weekRow.appendChild(endInput);
+        weekRow.appendChild(label);
+
+        item.appendChild(topRow);
+        item.appendChild(weekRow);
+        list.appendChild(item);
+    });
+
+    if (!areas.length) {
+        const empty = document.createElement('p');
+        empty.className = 'academic-empty';
+        empty.textContent = 'Inga områden ännu';
+        list.appendChild(empty);
+    }
+
+    panel.appendChild(list);
+    container.appendChild(panel);
+}
+
+function buildLinkSection({ area, sectionTitle, kind, subjectKey }) {
+    const section = document.createElement('section');
+    section.className = 'academic-grid-card';
+
+    const title = document.createElement('h3');
+    title.className = 'academic-grid-title';
+    title.textContent = sectionTitle;
+
+    const form = document.createElement('form');
+    form.className = 'academic-link-form';
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.placeholder = 'Titel';
+    titleInput.className = 'academic-mini-input';
+
+    const urlInput = document.createElement('input');
+    urlInput.type = 'url';
+    urlInput.placeholder = 'URL';
+    urlInput.className = 'academic-mini-input';
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'submit';
+    addBtn.className = 'academic-add-btn small';
+    addBtn.textContent = 'Lägg till';
+
+    form.appendChild(titleInput);
+    form.appendChild(urlInput);
+    form.appendChild(addBtn);
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!urlInput.value.trim()) return;
+        addLink(subjectKey, area.id, kind, titleInput.value, urlInput.value);
+    });
+
+    const list = document.createElement('div');
+    list.className = 'academic-link-list custom-scrollbar';
+
+    (area[kind] || []).forEach((link) => {
+        const row = document.createElement('div');
+        row.className = 'academic-link-row';
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'academic-mini-input';
+        nameInput.value = link.title || '';
+        nameInput.addEventListener('input', () => setLinkField(subjectKey, area.id, kind, link.id, 'title', nameInput.value));
+
+        const linkInput = document.createElement('input');
+        linkInput.type = 'url';
+        linkInput.className = 'academic-mini-input';
+        linkInput.value = link.url || '';
+        linkInput.addEventListener('input', () => setLinkField(subjectKey, area.id, kind, link.id, 'url', linkInput.value));
+
+        const openLink = document.createElement('a');
+        openLink.href = link.url || '#';
+        openLink.target = '_blank';
+        openLink.rel = 'noopener noreferrer';
+        openLink.className = 'academic-link-open';
+        openLink.textContent = '↗';
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'academic-delete-btn';
+        del.textContent = '×';
+        del.addEventListener('click', () => deleteLink(subjectKey, area.id, kind, link.id));
+
+        row.appendChild(nameInput);
+        row.appendChild(linkInput);
+        row.appendChild(openLink);
+        row.appendChild(del);
+        list.appendChild(row);
+    });
+
+    section.appendChild(title);
+    section.appendChild(form);
+    section.appendChild(list);
+    return section;
+}
+
+function buildCoreContentSection(area, subject) {
+    const section = document.createElement('section');
+    section.className = 'academic-grid-card';
+
+    const title = document.createElement('h3');
+    title.className = 'academic-grid-title';
+    title.textContent = 'Centralt innehåll';
+
+    const form = document.createElement('form');
+    form.className = 'academic-core-form';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'academic-mini-input';
+    input.placeholder = 'Lägg till punkt';
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'submit';
+    addBtn.className = 'academic-add-btn small';
+    addBtn.textContent = 'Lägg till';
+
+    form.appendChild(input);
+    form.appendChild(addBtn);
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!input.value.trim()) return;
+        addCoreContent(selectedSubjectKey, area.id, input.value);
+    });
+
+    const list = document.createElement('div');
+    list.className = 'academic-core-list custom-scrollbar';
+
+    (area.coreContent || []).forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'academic-core-item';
+        if (item.done) {
+            row.classList.add('done');
+            row.style.backgroundColor = subject.color?.bg || '#a6857e';
+            row.style.color = '#fff';
+            row.style.borderColor = subject.color?.bg || '#a6857e';
+        }
+
+        row.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, area.id, item.id));
+
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.className = 'academic-core-input';
+        textInput.value = item.text || '';
+        textInput.addEventListener('click', (e) => e.stopPropagation());
+        textInput.addEventListener('input', () => setCoreContentText(selectedSubjectKey, area.id, item.id, textInput.value));
+
+        const status = document.createElement('span');
+        status.className = 'academic-core-status';
+        status.textContent = item.done ? 'Klart' : 'Markera';
+
+        row.appendChild(textInput);
+        row.appendChild(status);
+        list.appendChild(row);
+    });
+
+    section.appendChild(title);
+    section.appendChild(form);
+    section.appendChild(list);
+    return section;
+}
+
+function buildDashboard(container, subject) {
+    const dashboard = document.createElement('div');
+    dashboard.className = 'academic-dashboard';
+
+    const area = getAreaById(selectedSubjectKey, selectedAreaId);
+    if (!area) {
+        const empty = document.createElement('div');
+        empty.className = 'academic-dashboard-empty';
+        empty.textContent = 'Välj eller skapa ett område för att börja planera.';
+        dashboard.appendChild(empty);
+        container.appendChild(dashboard);
+        return;
+    }
+
+    ensureAreaDefaults(area);
+
+    const planCard = document.createElement('section');
+    planCard.className = 'academic-grid-card';
+
+    const planTitle = document.createElement('h3');
+    planTitle.className = 'academic-grid-title';
+    planTitle.textContent = 'Planering';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'academic-plan-textarea custom-scrollbar';
+    textarea.value = area.plan || '';
+    textarea.placeholder = 'Skriv planering för området...';
+    textarea.addEventListener('input', () => {
+        area.plan = textarea.value;
+        saveAcademicData();
+    });
+
+    planCard.appendChild(planTitle);
+    planCard.appendChild(textarea);
+
+    dashboard.appendChild(planCard);
+    dashboard.appendChild(buildLinkSection({ area, sectionTitle: 'Presentationer', kind: 'presentations', subjectKey: selectedSubjectKey }));
+    dashboard.appendChild(buildLinkSection({ area, sectionTitle: 'Filmer', kind: 'videos', subjectKey: selectedSubjectKey }));
+    dashboard.appendChild(buildCoreContentSection(area, subject));
+
+    container.appendChild(dashboard);
+}
+
+export function renderAcademicPlanningView() {
+    const container = document.getElementById('view-lasarsplanering');
+    if (!container) return;
+
+    academicData = loadAcademicData();
+    if (!SUBJECT_DEFINITIONS.some((subject) => subject.key === selectedSubjectKey)) {
+        selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
+    }
+    ensureSelection();
+
+    container.textContent = '';
+
+    const layout = document.createElement('div');
+    layout.className = 'academic-layout';
+
+    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
+
+    buildSubjectSidebar(layout);
+    buildAreaPanel(layout);
+    buildDashboard(layout, subject);
+
+    container.appendChild(layout);
+}
+
+function getActiveLesson() {
+    if (!activeLessonId) return null;
+    const weekKey = `${currentYear}-W${currentWeek}`;
+    const lessons = plannerData[weekKey]?.lessons?.[activeDayIndex] || [];
+    return lessons.find((lesson) => lesson.id === activeLessonId) || null;
+}
+
+function getSubjectPresentationItems(subjectKey) {
+    const subject = getSubject(subjectKey);
+    return getSortedAreas(subjectKey).flatMap((area) => {
+        ensureAreaDefaults(area);
+        return area.presentations
+            .filter((item) => item.url)
+            .map((item) => ({
+                title: item.title || 'Namnlös presentation',
+                url: item.url,
+                areaTitle: area.title || 'Område',
+                weekLabel: `v. ${sanitizeWeek(area.startWeek, 1)}-${sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1))}`,
+            }));
+    });
+}
+
+export function closePlanningPresentationPicker() {
+    const modal = document.getElementById('planning-presentation-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function openPlanningPresentationPicker() {
+    const lesson = getActiveLesson();
+    if (!lesson) {
+        alert('Välj en lektion först.');
+        return;
+    }
+
+    const subjectKey = normalizeSubjectToKey(lesson.subject);
+    if (!subjectKey) {
+        alert('Ämnet matchar inget ämne i läsårsplaneringen.');
+        return;
+    }
+
+    academicData = loadAcademicData();
+    const items = getSubjectPresentationItems(subjectKey);
+    if (!items.length) {
+        alert('Inga sparade presentationer för detta ämne.');
+        return;
+    }
+
+    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === subjectKey);
+    const modal = document.getElementById('planning-presentation-modal');
+    const subjectText = document.getElementById('planning-presentation-modal-subject');
+    const list = document.getElementById('planning-presentation-modal-list');
+    if (!modal || !subjectText || !list) return;
+
+    subjectText.textContent = subject ? subject.label : lesson.subject;
+    list.textContent = '';
+
+    items.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'planning-picker-item';
+
+        const title = document.createElement('span');
+        title.className = 'planning-picker-title';
+        title.textContent = item.title;
+
+        const meta = document.createElement('span');
+        meta.className = 'planning-picker-meta';
+        meta.textContent = `${item.areaTitle} • ${item.weekLabel}`;
+
+        btn.appendChild(title);
+        btn.appendChild(meta);
+        btn.addEventListener('click', () => {
+            openTool('presentation', { launchUrl: item.url });
+            closePlanningPresentationPicker();
+        });
+        list.appendChild(btn);
+    });
+
+    modal.classList.remove('hidden');
+}
+
+export function initAcademicPlanning() {
+    academicData = loadAcademicData();
+}

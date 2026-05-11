@@ -6,6 +6,7 @@ import { ensureWeekExists } from './data.js';
 import { saveData } from './persistence.js';
 import { renderOversikt, renderDayDetail, renderFutureWeeks } from './render.js';
 import { saveAndClearLessonTools, restoreLessonTools } from './tools.js';
+import { renderAcademicPlanningView } from './academicPlanning.js';
 
 export function refreshUI() {
     document.getElementById('current-week-display').innerText = currentWeek;
@@ -13,6 +14,7 @@ export function refreshUI() {
     saveData(); // persist any newly-initialised week data (mirrors original behaviour)
     renderOversikt();
     if (activeView === 'day-detail') renderDayDetail();
+    if (activeView === 'lasarsplanering') renderAcademicPlanningView();
 }
 
 export function changeView(view) {
@@ -31,6 +33,7 @@ export function changeView(view) {
     document.getElementById('view-oversikt').classList.add('hidden');
     document.getElementById('view-framtid').classList.add('hidden');
     document.getElementById('view-day-detail').classList.add('hidden');
+    document.getElementById('view-lasarsplanering').classList.add('hidden');
 
     if (view === 'oversikt') {
         document.getElementById('view-oversikt').classList.remove('hidden');
@@ -39,6 +42,10 @@ export function changeView(view) {
     } else if (view === 'framtid') {
         document.getElementById('view-framtid').classList.remove('hidden');
         document.getElementById('btn-framtid').classList.add('active');
+    } else if (view === 'lasarsplanering') {
+        document.getElementById('view-lasarsplanering').classList.remove('hidden');
+        document.getElementById('btn-lasarsplanering').classList.add('active');
+        renderAcademicPlanningView();
     } else {
         const dayMap = { mandag: 0, tisdag: 1, onsdag: 2, torsdag: 3, fredag: 4 };
         setActiveDayIndex(dayMap[view]);
