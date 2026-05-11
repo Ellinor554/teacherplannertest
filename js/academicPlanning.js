@@ -22,6 +22,12 @@ let selectedAreaId = null;
 
 function createId(prefix) {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        return `${prefix}-${hex}`;
+    }
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
@@ -250,7 +256,7 @@ function buildAreaPanel(container) {
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'academic-add-btn';
-    addBtn.textContent = '+ Add Area';
+    addBtn.textContent = '+ Lägg till område';
     addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
 
     header.appendChild(title);
