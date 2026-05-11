@@ -17,6 +17,7 @@ const MAX_RECENT_PRESENTATIONS = 3;
 const PRESENTATION_RATIO = 16 / 9;
 const PRESENTATION_MIN_WIDTH = 420;
 const PRESENTATION_MIN_HEIGHT = Math.ceil(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
+const PRESENTATION_REFLOW_TRANSFORM = 'translateZ(0)';
 
 let presentationLibrary = [];
 let presentationRecent = [];
@@ -652,7 +653,7 @@ function enforcePresentationAspectRatio(tool) {
         let h = Math.round((w * 9) / 16);
         if (h > maxHeight) {
             h = Math.max(PRESENTATION_MIN_HEIGHT, maxHeight);
-            w = Math.round(h * PRESENTATION_RATIO);
+            w = Math.round((h * 16) / 9);
         }
         return { w, h };
     };
@@ -690,7 +691,7 @@ function refreshPresentationLayout(tool) {
     const frameWrap = tool.querySelector('.presentation-frame-wrap');
     if (!frameWrap) return;
     const prevTransform = frameWrap.style.transform;
-    frameWrap.style.transform = 'translateZ(0)';
+    frameWrap.style.transform = PRESENTATION_REFLOW_TRANSFORM;
     // Workaround: Google Slides embed can stay visually "frozen" after drag-resize;
     // a one-time reflow at drag end nudges the container and iframe to recompute layout.
     void frameWrap.offsetWidth;
