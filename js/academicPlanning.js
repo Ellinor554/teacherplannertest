@@ -523,20 +523,17 @@ function renderCurriculumMap() {
 
         overlay.appendChild(grid);
     }
-
-    // Escape to close
-    if (curriculumMapEscapeHandler) {
-        document.removeEventListener('keydown', curriculumMapEscapeHandler);
-    }
-    curriculumMapEscapeHandler = (e) => {
-        if (e.key === 'Escape') closeCurriculumMap();
-    };
-    document.addEventListener('keydown', curriculumMapEscapeHandler);
 }
 
 function openCurriculumMap(mode = 'view') {
     curriculumMapMode = mode;
     renderCurriculumMap();
+    if (!curriculumMapEscapeHandler) {
+        curriculumMapEscapeHandler = (e) => {
+            if (e.key === 'Escape') closeCurriculumMap();
+        };
+        document.addEventListener('keydown', curriculumMapEscapeHandler);
+    }
 }
 
 function buildSubjectSidebar(container) {
