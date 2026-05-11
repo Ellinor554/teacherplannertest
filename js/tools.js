@@ -15,9 +15,15 @@ let _toolOffset = 0;
 const PRESENTATION_STORAGE_KEY = 'teacherplanner_presentation_links';
 const MAX_RECENT_PRESENTATIONS = 3;
 const PRESENTATION_RATIO = 16 / 9;
-const PRESENTATION_MIN_WIDTH = 420;
+const PRESENTATION_MIN_WIDTH = 480;
 const PRESENTATION_MIN_HEIGHT = Math.ceil(PRESENTATION_MIN_WIDTH / PRESENTATION_RATIO);
 const PRESENTATION_REFLOW_TRANSFORM = 'translateZ(0)';
+const PRESENTATION_SIZE_PRESETS = {
+    S: { width: 480 },
+    M: { width: 720 },
+    L: { width: 960 },
+};
+const PRESENTATION_DEFAULT_PRESET = 'M';
 
 let presentationLibrary = [];
 let presentationRecent = [];
@@ -207,7 +213,35 @@ export function openTool(type, options = {}) {
     closeBtn.addEventListener('click', () => closeFloatingTool(closeBtn));
 
     header.appendChild(titleSpan);
-    header.appendChild(closeBtn);
+    if (type === 'presentation') {
+        const headerActions = document.createElement('div');
+        headerActions.className = 'presentation-header-actions';
+
+        const presetWrap = document.createElement('div');
+        presetWrap.className = 'presentation-size-presets';
+
+        ['S', 'M', 'L'].forEach((presetKey) => {
+            const presetBtn = document.createElement('button');
+            presetBtn.type = 'button';
+            presetBtn.className = 'presentation-size-btn';
+            presetBtn.dataset.preset = presetKey;
+            presetBtn.textContent = presetKey;
+            presetBtn.setAttribute('aria-label', `Storlek ${presetKey}`);
+            presetBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+            presetBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+            presetBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                applyPresentationPresetSize(tool, presetKey);
+            });
+            presetWrap.appendChild(presetBtn);
+        });
+
+        headerActions.appendChild(presetWrap);
+        headerActions.appendChild(closeBtn);
+        header.appendChild(headerActions);
+    } else {
+        header.appendChild(closeBtn);
+    }
 
     // Body
     const body = document.createElement('div');
@@ -364,15 +398,28 @@ export function openTool(type, options = {}) {
         }
     } else if (type === 'presentation') {
         setTimeout(() => {
-            const header = tool.querySelector('.floating-tool-header');
-            const headerHeight = header ? header.offsetHeight : 0;
-            const width = Math.min(window.innerWidth * 0.9, 960);
-            const height = Math.round(width / PRESENTATION_RATIO) + headerHeight;
-            tool.style.width = `${Math.round(width)}px`;
-            tool.style.height = `${height}px`;
+            applyPresentationPresetSize(tool, PRESENTATION_DEFAULT_PRESET);
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
         }, 0);
     }
+}
+
+function applyPresentationPresetSize(tool, presetKey) {
+    const preset = PRESENTATION_SIZE_PRESETS[presetKey] || PRESENTATION_SIZE_PRESETS[PRESENTATION_DEFAULT_PRESET];
+    if (!preset) return;
+    const header = tool.querySelector('.floating-tool-header');
+    const headerHeight = header ? header.offsetHeight : 0;
+    const { w, h } = clampPresentationSize(preset.width, headerHeight, 'width');
+    tool.style.width = `${w}px`;
+    tool.style.height = `${h}px`;
+    const left = Math.max(0, Math.min(tool.offsetLeft, window.innerWidth - w));
+    const top = Math.max(0, Math.min(tool.offsetTop, window.innerHeight - h));
+    tool.style.left = `${left}px`;
+    tool.style.top = `${top}px`;
+    tool.querySelectorAll('.presentation-size-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.preset === presetKey);
+    });
+    refreshPresentationLayout(tool);
 }
 
 function normalizePresentationUrl(raw) {
@@ -667,26 +714,7 @@ function enforcePresentationAspectRatio(tool) {
     };
 
     const clampToViewport = (size, lockBy = 'width') => {
-        const maxWidth = Math.floor(window.innerWidth * 0.95);
-        const maxHeight = Math.floor(window.innerHeight * 0.95);
-        let w;
-        let h;
-        if (lockBy === 'height') {
-            h = Math.max(minToolHeight, Math.min(size, maxHeight));
-            w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
-        } else {
-            w = Math.max(PRESENTATION_MIN_WIDTH, Math.min(size, maxWidth));
-            h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
-        }
-        if (h > maxHeight) {
-            h = Math.max(minToolHeight, maxHeight);
-            w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
-        }
-        if (w > maxWidth) {
-            w = Math.max(PRESENTATION_MIN_WIDTH, maxWidth);
-            h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
-        }
-        return { w, h };
+        return clampPresentationSize(size, headerHeight, lockBy, minToolHeight);
     };
 
     const enforceSize = (requestedWidth, requestedHeight) => {
@@ -749,6 +777,45 @@ function enforcePresentationAspectRatio(tool) {
     tool._presentationMouseupListener = handleMouseup;
     tool._presentationTouchendListener = handleTouchend;
     return ro;
+}
+
+function clampPresentationSize(size, headerHeight, lockBy = 'width', explicitMinToolHeight = null) {
+    const maxWidth = Math.floor(window.innerWidth * 0.95);
+    const maxHeight = Math.floor(window.innerHeight * 0.95);
+    const minWidth = Math.min(PRESENTATION_MIN_WIDTH, maxWidth);
+    const minToolHeight = Math.min(
+        explicitMinToolHeight ?? (PRESENTATION_MIN_HEIGHT + headerHeight),
+        maxHeight
+    );
+
+    let w;
+    let h;
+    if (lockBy === 'height') {
+        h = Math.max(minToolHeight, Math.min(size, maxHeight));
+        w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
+    } else {
+        w = Math.max(minWidth, Math.min(size, maxWidth));
+        h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
+    }
+
+    if (h > maxHeight) {
+        h = maxHeight;
+        w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
+    }
+    if (w > maxWidth) {
+        w = maxWidth;
+        h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
+    }
+    if (h < minToolHeight) {
+        h = minToolHeight;
+        w = Math.round((h - headerHeight) * PRESENTATION_RATIO);
+    }
+    if (w < minWidth) {
+        w = minWidth;
+        h = Math.round(w / PRESENTATION_RATIO) + headerHeight;
+    }
+
+    return { w, h };
 }
 
 function refreshPresentationLayout(tool, refreshSource = false) {

@@ -532,11 +532,44 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 
 /* ── Presentation tool ─────────────────────────────────────────────────────── */
 .floating-tool.presentation-tool {
-    min-width: 420px;
+    min-width: 480px;
     min-height: 276px;
+    background: #ffffff;
 }
 .floating-tool.presentation-tool .floating-tool-header {
     background: #f8f7f5;
+}
+.presentation-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.presentation-size-presets {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.presentation-size-btn {
+    width: 24px;
+    height: 22px;
+    border: 1px solid #dfd9d4;
+    background: #ffffff;
+    border-radius: 6px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #93897f;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+}
+.presentation-size-btn:hover {
+    border-color: #bfaea0;
+    color: #7f7268;
+}
+.presentation-size-btn.active {
+    border-color: #a6857e;
+    color: #7f6259;
+    background: #fdf9f7;
 }
 .presentation-window-title {
     font-size: 0.66rem;
@@ -548,7 +581,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     position: relative;
     padding: 0 !important;
     overflow: hidden;
-    background: #f8f7f5;
+    background: #ffffff;
 }
 .presentation-library {
     height: 100%;
@@ -641,7 +674,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     overflow: hidden;
     margin: 0;
     padding: 0;
-    background: #1a1a1a;
+    background: #ffffff;
 }
 .presentation-controls {
     position: absolute;
