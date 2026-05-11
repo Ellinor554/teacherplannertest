@@ -19,6 +19,7 @@ const SUBJECT_DEFINITIONS = [
 let academicData = loadAcademicData();
 let selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
 let selectedAreaId = null;
+let selectedPanelView = 'areas';
 
 function createId(prefix) {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
@@ -37,20 +38,96 @@ function sanitizeWeek(value, fallback = 1) {
     return Math.max(1, Math.min(52, parsed));
 }
 
+function normalizeCoreContentText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function ensureUniqueIds(ids) {
+    return [...new Set((ids || []).filter((id) => typeof id === 'string' && id))];
+}
+
+function upsertMasterListItem(subject, text, done = false) {
+    const normalizedText = normalizeCoreContentText(text);
+    if (!normalizedText) return null;
+
+    if (!Array.isArray(subject.masterList)) subject.masterList = [];
+    const existing = subject.masterList.find((item) => normalizeCoreContentText(item.text).toLowerCase() === normalizedText.toLowerCase());
+    if (existing) {
+        existing.done = Boolean(existing.done || done);
+        existing.text = normalizedText;
+        return existing;
+    }
+
+    const item = { id: createId('core'), text: normalizedText, done: Boolean(done) };
+    subject.masterList.push(item);
+    return item;
+}
+
+function ensureSubjectDefaults(subject) {
+    if (!subject || typeof subject !== 'object') return { areas: [], masterList: [] };
+    if (!Array.isArray(subject.areas)) subject.areas = [];
+    if (!Array.isArray(subject.masterList)) subject.masterList = [];
+
+    subject.masterList = subject.masterList.reduce((items, entry) => {
+        const text = normalizeCoreContentText(entry?.text);
+        if (!text) return items;
+        const existing = items.find((item) => item.text.toLowerCase() === text.toLowerCase());
+        if (existing) {
+            existing.done = Boolean(existing.done || entry?.done);
+            return items;
+        }
+        items.push({
+            id: typeof entry?.id === 'string' && entry.id ? entry.id : createId('core'),
+            text,
+            done: Boolean(entry?.done),
+        });
+        return items;
+    }, []);
+
+    subject.areas.forEach((area) => {
+        ensureAreaDefaults(area);
+
+        (area.coreContent || []).forEach((entry) => {
+            const text = normalizeCoreContentText(typeof entry === 'string' ? entry : entry?.text);
+            if (!text) return;
+            const masterItem = upsertMasterListItem(subject, text, Boolean(entry?.done));
+            if (masterItem) area.coreContentIds.push(masterItem.id);
+        });
+
+        const validIds = new Set(subject.masterList.map((item) => item.id));
+        area.coreContentIds = ensureUniqueIds(area.coreContentIds).filter((id) => validIds.has(id));
+        area.coreContent = [];
+    });
+
+    return subject;
+}
+
+function parseMasterListText(value) {
+    const seen = new Set();
+    return String(value || '')
+        .split(/\r?\n/)
+        .map((line) => normalizeCoreContentText(line))
+        .filter((line) => {
+            if (!line) return false;
+            const key = line.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+}
+
 function loadAcademicData() {
     try {
         const parsed = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY) || '{}');
         const subjects = parsed?.subjects && typeof parsed.subjects === 'object' ? parsed.subjects : {};
         SUBJECT_DEFINITIONS.forEach((subject) => {
-            if (!subjects[subject.key] || !Array.isArray(subjects[subject.key].areas)) {
-                subjects[subject.key] = { areas: [] };
-            }
+            subjects[subject.key] = ensureSubjectDefaults(subjects[subject.key] || { areas: [], masterList: [] });
         });
         return { subjects };
     } catch {
         const subjects = {};
         SUBJECT_DEFINITIONS.forEach((subject) => {
-            subjects[subject.key] = { areas: [] };
+            subjects[subject.key] = { areas: [], masterList: [] };
         });
         return { subjects };
     }
@@ -62,9 +139,9 @@ function saveAcademicData() {
 
 function getSubject(subjectKey) {
     if (!academicData.subjects[subjectKey]) {
-        academicData.subjects[subjectKey] = { areas: [] };
+        academicData.subjects[subjectKey] = { areas: [], masterList: [] };
     }
-    return academicData.subjects[subjectKey];
+    return ensureSubjectDefaults(academicData.subjects[subjectKey]);
 }
 
 function getAreaById(subjectKey, areaId) {
@@ -105,6 +182,7 @@ function ensureAreaDefaults(area) {
     if (!Array.isArray(area.presentations)) area.presentations = [];
     if (!Array.isArray(area.videos)) area.videos = [];
     if (!Array.isArray(area.coreContent)) area.coreContent = [];
+    if (!Array.isArray(area.coreContentIds)) area.coreContentIds = [];
     if (typeof area.plan !== 'string') area.plan = '';
 }
 
@@ -119,6 +197,7 @@ function addArea(subjectKey) {
         presentations: [],
         videos: [],
         coreContent: [],
+        coreContentIds: [],
     };
     subject.areas.push(newArea);
     selectedAreaId = newArea.id;
@@ -180,34 +259,85 @@ function setLinkField(subjectKey, areaId, kind, linkId, field, value) {
     saveAcademicData();
 }
 
-function addCoreContent(subjectKey, areaId, text) {
-    const area = getAreaById(subjectKey, areaId);
-    if (!area) return;
-    ensureAreaDefaults(area);
-    area.coreContent.push({ id: createId('core'), text: text.trim(), done: false });
+function replaceMasterList(subjectKey, rawText) {
+    const subject = getSubject(subjectKey);
+    const currentItems = [...subject.masterList];
+    const lines = parseMasterListText(rawText);
+    const usedIds = new Set();
+    const nextItems = lines.map((line, index) => {
+        const exactMatch = currentItems.find((item) => !usedIds.has(item.id) && item.text.toLowerCase() === line.toLowerCase());
+        if (exactMatch) {
+            usedIds.add(exactMatch.id);
+            return { ...exactMatch, text: line };
+        }
+
+        const sameIndex = currentItems[index];
+        if (sameIndex && !usedIds.has(sameIndex.id)) {
+            usedIds.add(sameIndex.id);
+            return { ...sameIndex, text: line };
+        }
+
+        const item = { id: createId('core'), text: line, done: false };
+        usedIds.add(item.id);
+        return item;
+    });
+
+    const nextIds = new Set(nextItems.map((item) => item.id));
+    const removedCount = currentItems.filter((item) => !nextIds.has(item.id)).length;
+    if (removedCount > 0 && !confirm(`Detta tar bort ${removedCount} punkt${removedCount === 1 ? '' : 'er'} från kursplanen och från alla områden. Fortsätta?`)) {
+        return;
+    }
+
+    subject.masterList = nextItems;
+    subject.areas.forEach((area) => {
+        ensureAreaDefaults(area);
+        area.coreContentIds = ensureUniqueIds(area.coreContentIds).filter((id) => nextIds.has(id));
+    });
     saveAcademicData();
     renderAcademicPlanningView();
 }
 
-function setCoreContentText(subjectKey, areaId, itemId, value) {
+function addCoreContentSelection(subjectKey, areaId, itemId) {
     const area = getAreaById(subjectKey, areaId);
     if (!area) return;
     ensureAreaDefaults(area);
-    const item = area.coreContent.find((entry) => entry.id === itemId);
-    if (!item) return;
-    item.text = value;
+    if (!area.coreContentIds.includes(itemId)) area.coreContentIds.push(itemId);
     saveAcademicData();
+    renderAcademicPlanningView();
 }
 
-function toggleCoreContentDone(subjectKey, areaId, itemId) {
+function removeCoreContentSelection(subjectKey, areaId, itemId) {
+    if (!confirm('Är du säker?')) return;
     const area = getAreaById(subjectKey, areaId);
     if (!area) return;
     ensureAreaDefaults(area);
-    const item = area.coreContent.find((entry) => entry.id === itemId);
+    area.coreContentIds = area.coreContentIds.filter((id) => id !== itemId);
+    saveAcademicData();
+    renderAcademicPlanningView();
+}
+
+function toggleCoreContentDone(subjectKey, itemId) {
+    const subject = getSubject(subjectKey);
+    const item = subject.masterList.find((entry) => entry.id === itemId);
     if (!item) return;
     item.done = !item.done;
     saveAcademicData();
     renderAcademicPlanningView();
+}
+
+function countCoreContentUsage(subjectKey, itemId) {
+    const subject = getSubject(subjectKey);
+    return subject.areas.reduce((count, area) => {
+        ensureAreaDefaults(area);
+        return count + (area.coreContentIds.includes(itemId) ? 1 : 0);
+    }, 0);
+}
+
+function getAreaCoreContentItems(subjectKey, area) {
+    ensureAreaDefaults(area);
+    const subject = getSubject(subjectKey);
+    const selectedIds = new Set(area.coreContentIds);
+    return subject.masterList.filter((item) => selectedIds.has(item.id));
 }
 
 function buildSubjectSidebar(container) {
@@ -251,17 +381,45 @@ function buildAreaPanel(container) {
 
     const title = document.createElement('h2');
     title.className = 'serif-title text-3xl';
-    title.textContent = 'Områden';
-
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'academic-add-btn';
-    addBtn.textContent = '+ Lägg till område';
-    addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
+    title.textContent = selectedPanelView === 'master-list' ? 'Kursplan' : 'Områden';
 
     header.appendChild(title);
-    header.appendChild(addBtn);
+    if (selectedPanelView === 'areas') {
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'academic-add-btn';
+        addBtn.textContent = '+ Lägg till område';
+        addBtn.addEventListener('click', () => addArea(selectedSubjectKey));
+        header.appendChild(addBtn);
+    }
     panel.appendChild(header);
+
+    const tabs = document.createElement('div');
+    tabs.className = 'academic-panel-tabs';
+
+    [
+        { key: 'areas', label: 'Områden' },
+        { key: 'master-list', label: 'Kursplan' },
+    ].forEach((tab) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'academic-panel-tab';
+        btn.textContent = tab.label;
+        btn.classList.toggle('active', selectedPanelView === tab.key);
+        btn.addEventListener('click', () => {
+            selectedPanelView = tab.key;
+            renderAcademicPlanningView();
+        });
+        tabs.appendChild(btn);
+    });
+
+    panel.appendChild(tabs);
+
+    if (selectedPanelView === 'master-list') {
+        buildMasterListPanel(panel);
+        container.appendChild(panel);
+        return;
+    }
 
     const list = document.createElement('div');
     list.className = 'academic-area-list';
@@ -344,6 +502,77 @@ function buildAreaPanel(container) {
 
     panel.appendChild(list);
     container.appendChild(panel);
+}
+
+function buildMasterListPanel(panel) {
+    const subject = getSubject(selectedSubjectKey);
+    const subjectDefinition = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'academic-master-view';
+
+    const hint = document.createElement('p');
+    hint.className = 'academic-master-hint';
+    hint.textContent = 'Klistra in hela kursplanen med en punkt per rad. Markeringar behålls så länge punkten finns kvar.';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'academic-master-textarea custom-scrollbar';
+    textarea.placeholder = 'En punkt per rad...';
+    textarea.value = subject.masterList.map((item) => item.text).join('\n');
+
+    const actions = document.createElement('div');
+    actions.className = 'academic-master-actions';
+
+    const count = document.createElement('span');
+    count.className = 'academic-master-count';
+    count.textContent = `${subject.masterList.length} punkt${subject.masterList.length === 1 ? '' : 'er'}`;
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'academic-add-btn small';
+    saveBtn.textContent = 'Spara kursplan';
+    saveBtn.addEventListener('click', () => replaceMasterList(selectedSubjectKey, textarea.value));
+
+    actions.appendChild(count);
+    actions.appendChild(saveBtn);
+
+    const list = document.createElement('div');
+    list.className = 'academic-master-list custom-scrollbar';
+
+    if (!subject.masterList.length) {
+        const empty = document.createElement('p');
+        empty.className = 'academic-empty';
+        empty.textContent = 'Ingen kursplan ännu';
+        list.appendChild(empty);
+    } else {
+        subject.masterList.forEach((item) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'academic-master-item';
+            row.style.setProperty('--subject-color', subjectDefinition?.color?.bg || '#a6857e');
+            row.style.setProperty('--subject-light', subjectDefinition?.color?.light || '#f5efe9');
+            if (item.done) row.classList.add('done');
+            row.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
+
+            const text = document.createElement('span');
+            text.className = 'academic-master-text';
+            text.textContent = item.text;
+
+            const meta = document.createElement('span');
+            meta.className = 'academic-master-meta';
+            const usageCount = countCoreContentUsage(selectedSubjectKey, item.id);
+            meta.textContent = `${usageCount} område${usageCount === 1 ? '' : 'n'} • ${item.done ? 'Klart' : 'Markera'}`;
+
+            row.appendChild(text);
+            row.appendChild(meta);
+            list.appendChild(row);
+        });
+    }
+
+    wrapper.appendChild(hint);
+    wrapper.appendChild(textarea);
+    wrapper.appendChild(actions);
+    wrapper.appendChild(list);
+    panel.appendChild(wrapper);
 }
 
 function buildLinkSection({ area, sectionTitle, kind, subjectKey }) {
@@ -430,66 +659,103 @@ function buildLinkSection({ area, sectionTitle, kind, subjectKey }) {
 function buildCoreContentSection(area, subject) {
     const section = document.createElement('section');
     section.className = 'academic-grid-card';
+    const subjectData = getSubject(selectedSubjectKey);
 
     const title = document.createElement('h3');
     title.className = 'academic-grid-title';
     title.textContent = 'Centralt innehåll';
 
-    const form = document.createElement('form');
-    form.className = 'academic-core-form';
+    const availableItems = subjectData.masterList.filter((item) => !area.coreContentIds.includes(item.id));
+    const selectedItems = getAreaCoreContentItems(selectedSubjectKey, area);
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'academic-mini-input';
-    input.placeholder = 'Lägg till punkt';
+    section.appendChild(title);
 
-    const addBtn = document.createElement('button');
-    addBtn.type = 'submit';
-    addBtn.className = 'academic-add-btn small';
-    addBtn.textContent = 'Lägg till';
+    if (subjectData.masterList.length) {
+        const form = document.createElement('form');
+        form.className = 'academic-core-picker';
 
-    form.appendChild(input);
-    form.appendChild(addBtn);
+        const select = document.createElement('select');
+        select.className = 'academic-mini-input academic-core-select';
 
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (!input.value.trim()) return;
-        addCoreContent(selectedSubjectKey, area.id, input.value);
-    });
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = availableItems.length ? 'Välj från kursplan' : 'Alla punkter är redan valda';
+        select.appendChild(placeholder);
+
+        availableItems.forEach((item) => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = item.text;
+            select.appendChild(option);
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'submit';
+        addBtn.className = 'academic-add-btn small';
+        addBtn.textContent = 'Lägg till';
+        addBtn.disabled = !availableItems.length;
+
+        form.appendChild(select);
+        form.appendChild(addBtn);
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!select.value) return;
+            addCoreContentSelection(selectedSubjectKey, area.id, select.value);
+        });
+
+        section.appendChild(form);
+    }
 
     const list = document.createElement('div');
     list.className = 'academic-core-list custom-scrollbar';
 
-    (area.coreContent || []).forEach((item) => {
-        const row = document.createElement('div');
-        row.className = 'academic-core-item';
-        if (item.done) {
-            row.classList.add('done');
-            row.style.backgroundColor = subject.color?.bg || '#a6857e';
-            row.style.color = '#fff';
-            row.style.borderColor = subject.color?.bg || '#a6857e';
-        }
+    if (!subjectData.masterList.length) {
+        const empty = document.createElement('p');
+        empty.className = 'academic-empty';
+        empty.textContent = 'Lägg först in ämnets kursplan under fliken Kursplan.';
+        list.appendChild(empty);
+    } else if (!selectedItems.length) {
+        const empty = document.createElement('p');
+        empty.className = 'academic-empty';
+        empty.textContent = 'Välj punkter från kursplanen för detta område.';
+        list.appendChild(empty);
+    } else {
+        selectedItems.forEach((item) => {
+            const row = document.createElement('div');
+            row.className = 'academic-core-item';
+            row.style.setProperty('--subject-color', subject.color?.bg || '#a6857e');
+            row.style.setProperty('--subject-light', subject.color?.light || '#f5efe9');
+            if (item.done) row.classList.add('done');
+            row.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
 
-        row.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, area.id, item.id));
+            const text = document.createElement('span');
+            text.className = 'academic-core-text';
+            text.textContent = item.text;
 
-        const textInput = document.createElement('input');
-        textInput.type = 'text';
-        textInput.className = 'academic-core-input';
-        textInput.value = item.text || '';
-        textInput.addEventListener('click', (e) => e.stopPropagation());
-        textInput.addEventListener('input', () => setCoreContentText(selectedSubjectKey, area.id, item.id, textInput.value));
+            const actions = document.createElement('div');
+            actions.className = 'academic-core-actions';
 
-        const status = document.createElement('span');
-        status.className = 'academic-core-status';
-        status.textContent = item.done ? 'Klart' : 'Markera';
+            const status = document.createElement('span');
+            status.className = 'academic-core-status';
+            status.textContent = item.done ? 'Klart' : 'Markera';
 
-        row.appendChild(textInput);
-        row.appendChild(status);
-        list.appendChild(row);
-    });
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'academic-core-remove';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeCoreContentSelection(selectedSubjectKey, area.id, item.id);
+            });
 
-    section.appendChild(title);
-    section.appendChild(form);
+            actions.appendChild(status);
+            actions.appendChild(removeBtn);
+            row.appendChild(text);
+            row.appendChild(actions);
+            list.appendChild(row);
+        });
+    }
+
     section.appendChild(list);
     return section;
 }
