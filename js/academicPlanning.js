@@ -1,8 +1,8 @@
 import { SUBJECT_COLORS } from './config.js';
 import {
-    plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId
+    plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId, setIsSplitActive
 } from './state.js';
-import { openTool } from './tools.js';
+import { saveData } from './persistence.js';
 
 const ACADEMIC_STORAGE_KEY = 'teacherplanner_academic_year_planning';
 
@@ -22,6 +22,7 @@ let selectedAreaId = null;
 let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
 let curriculumEditEscapeHandler = null;
+let planningPickerContext = null;
 
 const SUBJECT_SECTION_TITLES = Array(3).fill('Rubrik');
 const DEFAULT_SECTION_KEY = 'section-1';
@@ -1145,24 +1146,66 @@ function getActiveLesson() {
     return lessons.find((lesson) => lesson.id === activeLessonId) || null;
 }
 
-function getSubjectPresentationItems(subjectKey) {
-    const subject = getSubject(subjectKey);
-    return getSortedAreas(subjectKey).flatMap((area) => {
-        ensureAreaDefaults(area);
-        return area.presentations
-            .filter((item) => item.url)
-            .map((item) => ({
-                title: item.title || 'Namnlös presentation',
-                url: item.url,
-                areaTitle: area.title || 'Område',
-                weekLabel: `v. ${sanitizeWeek(area.startWeek, 1)}-${sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1))}`,
-            }));
-    });
+function getActiveAreaForWeek(subjectKey, week = currentWeek) {
+    const targetWeek = sanitizeWeek(week, currentWeek);
+    return getSortedAreas(subjectKey).find((area) => {
+        const start = sanitizeWeek(area.startWeek, 1);
+        const end = sanitizeWeek(area.endWeek, start);
+        return targetWeek >= start && targetWeek <= end;
+    }) || null;
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeHref(url) {
+    const trimmed = String(url || '').trim();
+    if (!trimmed) return null;
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    try {
+        const parsed = new URL(candidate);
+        if (!/^https?:$/i.test(parsed.protocol)) return null;
+        return parsed.href;
+    } catch {
+        return null;
+    }
+}
+
+function buildPlanHtml(planText) {
+    return escapeHtml(planText || '').replace(/\n/g, '<br>');
+}
+
+function buildResourceSectionHtml(title, links) {
+    if (!links.length) return '';
+    const items = links.map((item) => {
+        const href = normalizeHref(item.url);
+        if (!href) return '';
+        const label = escapeHtml(item.title || href);
+        return `<li><a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a></li>`;
+    }).filter(Boolean).join('');
+    if (!items) return '';
+    return `<p><strong>${escapeHtml(title)}</strong></p><ul>${items}</ul>`;
+}
+
+function appendChunkToEditable(element, chunkHtml) {
+    if (!element) return false;
+    const chunk = String(chunkHtml || '').trim();
+    if (!chunk) return false;
+    if (element.innerHTML.trim()) element.insertAdjacentHTML('beforeend', '<div><br></div>');
+    element.insertAdjacentHTML('beforeend', chunk);
+    return true;
 }
 
 export function closePlanningPresentationPicker() {
     const modal = document.getElementById('planning-presentation-modal');
     if (modal) modal.classList.add('hidden');
+    planningPickerContext = null;
 }
 
 export function openPlanningPresentationPicker() {
@@ -1179,11 +1222,12 @@ export function openPlanningPresentationPicker() {
     }
 
     academicData = loadAcademicData();
-    const items = getSubjectPresentationItems(subjectKey);
-    if (!items.length) {
-        alert('Inga sparade presentationer för detta ämne.');
+    const activeArea = getActiveAreaForWeek(subjectKey, currentWeek);
+    if (!activeArea) {
+        alert('Inget aktivt område hittades för denna vecka.');
         return;
     }
+    ensureAreaDefaults(activeArea);
 
     const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === subjectKey);
     const modal = document.getElementById('planning-presentation-modal');
@@ -1191,32 +1235,94 @@ export function openPlanningPresentationPicker() {
     const list = document.getElementById('planning-presentation-modal-list');
     if (!modal || !subjectText || !list) return;
 
-    subjectText.textContent = subject ? subject.label : lesson.subject;
+    subjectText.textContent = `${subject ? subject.label : lesson.subject} • ${activeArea.title || 'Område'} • v. ${sanitizeWeek(activeArea.startWeek, 1)}-${sanitizeWeek(activeArea.endWeek, sanitizeWeek(activeArea.startWeek, 1))}`;
     list.textContent = '';
+    const presentationCount = activeArea.presentations.filter((item) => item.url).length;
+    const videoCount = activeArea.videos.filter((item) => item.url).length;
+    const options = [
+        { key: 'plan', label: 'Planeringstext', meta: 'Hämtar planeringstext från aktivt område' },
+        { key: 'presentations', label: 'Presentationer', meta: `Hämtar ${presentationCount} länk(ar)` },
+        { key: 'videos', label: 'Filmer', meta: `Hämtar ${videoCount} länk(ar)` },
+    ];
+    options.forEach((option) => {
+        const row = document.createElement('label');
+        row.className = 'planning-picker-item planning-picker-item-select';
 
-    items.forEach((item) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'planning-picker-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'planning-picker-checkbox';
+        checkbox.dataset.fetchOption = option.key;
 
+        const textWrap = document.createElement('div');
         const title = document.createElement('span');
         title.className = 'planning-picker-title';
-        title.textContent = item.title;
+        title.textContent = option.label;
 
         const meta = document.createElement('span');
         meta.className = 'planning-picker-meta';
-        meta.textContent = `${item.areaTitle} • ${item.weekLabel}`;
+        meta.textContent = option.meta;
 
-        btn.appendChild(title);
-        btn.appendChild(meta);
-        btn.addEventListener('click', () => {
-            openTool('presentation', { launchUrl: item.url });
-            closePlanningPresentationPicker();
-        });
-        list.appendChild(btn);
+        textWrap.appendChild(title);
+        textWrap.appendChild(meta);
+        row.appendChild(checkbox);
+        row.appendChild(textWrap);
+        list.appendChild(row);
     });
+    planningPickerContext = { subjectKey, areaId: activeArea.id };
 
     modal.classList.remove('hidden');
+}
+
+export function applyPlanningSelection() {
+    const modal = document.getElementById('planning-presentation-modal');
+    const list = document.getElementById('planning-presentation-modal-list');
+    if (!modal || !list || !planningPickerContext) return;
+
+    const lesson = getActiveLesson();
+    if (!lesson) return;
+
+    academicData = loadAcademicData();
+    const activeArea = getAreaById(planningPickerContext.subjectKey, planningPickerContext.areaId);
+    if (!activeArea) {
+        alert('Inget aktivt område hittades för denna vecka.');
+        closePlanningPresentationPicker();
+        return;
+    }
+    ensureAreaDefaults(activeArea);
+
+    const selected = [...list.querySelectorAll('input[data-fetch-option]:checked')]
+        .map((input) => input.dataset.fetchOption);
+    if (!selected.length) return;
+
+    const left = document.getElementById('sb-plan');
+    const right = document.getElementById('sb-plan-right');
+    if (selected.includes('plan')) {
+        const planHtml = buildPlanHtml(activeArea.plan);
+        if (planHtml) {
+            if (appendChunkToEditable(left, planHtml)) lesson.plan = left.innerHTML;
+            else lesson.plan = `${lesson.plan || ''}${lesson.plan ? '<div><br></div>' : ''}${planHtml}`;
+        }
+    }
+
+    const resourceSections = [];
+    if (selected.includes('presentations')) {
+        resourceSections.push(buildResourceSectionHtml('Presentationer', activeArea.presentations.filter((item) => item.url)));
+    }
+    if (selected.includes('videos')) {
+        resourceSections.push(buildResourceSectionHtml('Filmer', activeArea.videos.filter((item) => item.url)));
+    }
+    const resourceHtml = resourceSections.filter(Boolean).join('<div><br></div>');
+    if (resourceHtml) {
+        if (appendChunkToEditable(right, resourceHtml)) lesson.planRight = right.innerHTML;
+        else lesson.planRight = `${lesson.planRight || ''}${lesson.planRight ? '<div><br></div>' : ''}${resourceHtml}`;
+        lesson.split = true;
+        setIsSplitActive(true);
+        document.getElementById('sb-plan-divider')?.classList.remove('hidden');
+        right?.classList.remove('hidden');
+        document.getElementById('split-btn')?.classList.add('active');
+    }
+    saveData();
+    closePlanningPresentationPicker();
 }
 
 export function initAcademicPlanning() {

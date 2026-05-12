@@ -60,6 +60,7 @@
                         <p id="detail-date" class="text-gray-500 text-sm font-medium"></p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <button onclick="openPlanningPresentationPicker()" class="bg-[#a6857e] text-white px-2 py-1 rounded text-xs font-medium hover:bg-[#92756e] transition-colors">Hämta</button>
                         <button onclick="addLessonPrompt()" class="bg-[#9eb19a] text-white px-2 py-1 rounded text-xs font-medium hover:bg-[#8da089] transition-colors">+ Ny lektion</button>
                         <button onclick="toggleSidebar()" title="Dölj sidopanel" class="bg-[#c8b49a] text-white px-2 py-1 rounded text-xs font-medium hover:bg-[#b8a48a] transition-colors">◀ Dölj</button>
                     </div>
@@ -213,6 +214,9 @@
             <button onclick="closePlanningPresentationPicker()" class="text-gray-400 hover:text-black font-bold text-xl leading-none">&times;</button>
         </div>
         <div id="planning-presentation-modal-list" class="planning-picker-list custom-scrollbar"></div>
+        <div class="planning-picker-actions">
+            <button type="button" class="planning-picker-apply-btn" onclick="applyPlanningSelection()">Hämta valt</button>
+        </div>
     </div>
 </div>
 

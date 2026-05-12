@@ -21,7 +21,7 @@ import {
 } from './ui.js';
 import {
     initAcademicPlanning, renderAcademicPlanningView,
-    openPlanningPresentationPicker, closePlanningPresentationPicker,
+    openPlanningPresentationPicker, closePlanningPresentationPicker, applyPlanningSelection,
     openCurriculumMap, archiveCurrentYear, openArchiveOverlay
 } from './academicPlanning.js';
 import {
@@ -81,6 +81,7 @@ window.toggleCompletedSection = toggleCompletedSection;
 window.addSavedPresentationFromSettings = addSavedPresentationFromSettings;
 window.openPlanningPresentationPicker = openPlanningPresentationPicker;
 window.closePlanningPresentationPicker = closePlanningPresentationPicker;
+window.applyPlanningSelection = applyPlanningSelection;
 window.openCurriculumMap = openCurriculumMap;
 window.archiveCurrentYear = archiveCurrentYear;
 window.openArchiveOverlay = openArchiveOverlay;
