@@ -38,6 +38,8 @@ export function changeView(view) {
     const isAcademic = view === 'lasarsplanering';
     document.getElementById('week-nav').classList.toggle('hidden', isAcademic);
     document.getElementById('academic-planning-title').classList.toggle('hidden', !isAcademic);
+    const kursplanBtn = document.getElementById('kursplan-top-btn');
+    if (kursplanBtn) kursplanBtn.classList.toggle('hidden', !isAcademic);
 
     if (view === 'oversikt') {
         document.getElementById('view-oversikt').classList.remove('hidden');
