@@ -359,6 +359,10 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 .subject-manager-modal-content {
     width: 520px;
     max-width: 95vw;
+    max-height: min(85vh, 720px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 .subject-manager-header {
     display: flex;
@@ -377,8 +381,24 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: 360px;
-    padding-right: 4px;
+    max-height: min(60vh, 400px);
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: #d1cfcb transparent;
+}
+.subject-manager-list::-webkit-scrollbar {
+    width: 5px;
+}
+.subject-manager-list::-webkit-scrollbar-thumb {
+    background-color: #d1cfcb;
+    border-radius: 999px;
+}
+.subject-manager-modal-content [data-subject-manager-footer] {
+    flex-shrink: 0;
+    padding-top: 16px;
+    background: #fff;
 }
 .subject-manager-row {
     display: flex;
