@@ -917,13 +917,9 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 .curriculum-map-card.readonly {
     cursor: default;
 }
-.curriculum-map-card:hover {
+.curriculum-map-card:not(.readonly):hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
-}
-.curriculum-map-card.readonly:hover {
-    transform: none;
-    box-shadow: none;
 }
 .curriculum-map-card.done {
     background: var(--subject-color, #a6857e);
