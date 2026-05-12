@@ -1,7 +1,7 @@
 import { plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId } from './state.js';
 import { saveData } from './persistence.js';
 
-const PRIVATE_NOTE_URL_RE = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+const PRIVATE_NOTE_URL_RE = /((?:https?:\/\/|www\.)[^\s<>]+)/gi;
 
 function escapeHtml(value) {
     return String(value)

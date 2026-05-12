@@ -95,7 +95,10 @@ function _captureToolState(tool) {
         state.content = textarea ? textarea.value : '';
     } else if (type === 'presentation') {
         state.url = tool.dataset.activeUrl || '';
-        state.preset = tool.querySelector('.presentation-size-btn.active')?.dataset.preset || PRESENTATION_DEFAULT_PRESET;
+        const activePreset = tool.querySelector('.presentation-size-btn.active')?.dataset.preset || PRESENTATION_DEFAULT_PRESET;
+        state.preset = tool.classList.contains('presentation-fullscreen')
+            ? (tool.dataset.preFullscreenPreset || PRESENTATION_DEFAULT_PRESET)
+            : activePreset;
         state.fullscreen = tool.classList.contains('presentation-fullscreen');
     }
     return state;
@@ -588,7 +591,7 @@ function enterPresentationFullscreen(tool) {
     tool.dataset.preFullscreenWidth = tool.style.width || `${tool.offsetWidth}px`;
     tool.dataset.preFullscreenHeight = tool.style.height || `${tool.offsetHeight}px`;
     const activePreset = tool.querySelector('.presentation-size-btn.active')?.dataset.preset;
-    tool.dataset.preFullscreenPreset = activePreset && activePreset !== 'XL' ? activePreset : PRESENTATION_DEFAULT_PRESET;
+    tool.dataset.preFullscreenPreset = activePreset || PRESENTATION_DEFAULT_PRESET;
     tool.classList.add('presentation-fullscreen');
     tool.style.left = '0px';
     tool.style.top = '0px';
