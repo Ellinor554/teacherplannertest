@@ -8,6 +8,10 @@ const listeners = new Set();
 
 let subjectCache = loadSubjects();
 let subjectManagerModal = null;
+let subjectPendingDeleteKey = null;
+let subjectManagerAddMode = false;
+let subjectManagerDraftName = '';
+let subjectManagerFormError = '';
 
 function cloneSubject(subject) {
     return {
@@ -146,7 +150,7 @@ function findSubjectByNameInternal(subjectName) {
     if (!normalized) return null;
     return getAllSubjects().find((subject) => {
         for (const alias of getLookupTerms(subject)) {
-            if (normalized === alias || normalized.startsWith(`${alias} `) || normalized.startsWith(`${alias}-`) || normalized.startsWith(`${alias}:`) || normalized.startsWith(alias)) {
+            if (normalized === alias || normalized.startsWith(alias)) {
                 return true;
             }
         }
@@ -196,30 +200,146 @@ function renderSubjectManager() {
         });
 
         const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = 'subject-manager-delete';
-        deleteBtn.setAttribute('aria-label', `Ta bort ${subject.label}`);
-        deleteBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14H6L5 6"/>
-                <path d="M10 11v6"/>
-                <path d="M14 11v6"/>
-                <path d="M9 6V4h6v2"/>
-            </svg>
-        `;
-        deleteBtn.addEventListener('click', () => {
-            if (!confirm(`Ta bort ${subject.label} från ämneslistan?\n\nLektioner och befintlig planering lämnas orörda.`)) return;
-            const result = deleteSubject(subject.key);
-            if (!result.ok && result.message) alert(result.message);
-        });
+        if (subjectPendingDeleteKey === subject.key) {
+            const confirmWrap = document.createElement('div');
+            confirmWrap.className = 'subject-manager-confirm';
 
-        actions.appendChild(colorInput);
-        actions.appendChild(deleteBtn);
+            const confirmText = document.createElement('span');
+            confirmText.className = 'subject-manager-confirm-text';
+            confirmText.textContent = 'Ta bort?';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'subject-manager-cancel';
+            cancelBtn.textContent = 'Avbryt';
+            cancelBtn.addEventListener('click', () => {
+                subjectPendingDeleteKey = null;
+                renderSubjectManager();
+            });
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.type = 'button';
+            confirmBtn.className = 'subject-manager-confirm-btn';
+            confirmBtn.textContent = 'Ja';
+            confirmBtn.addEventListener('click', () => {
+                const result = deleteSubject(subject.key);
+                if (!result.ok && result.message) {
+                    subjectManagerFormError = result.message;
+                } else {
+                    subjectManagerFormError = '';
+                }
+            });
+
+            confirmWrap.appendChild(confirmText);
+            confirmWrap.appendChild(cancelBtn);
+            confirmWrap.appendChild(confirmBtn);
+            actions.appendChild(confirmWrap);
+        } else {
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'subject-manager-delete';
+            deleteBtn.setAttribute('aria-label', `Ta bort ${subject.label}`);
+            deleteBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6"/>
+                    <path d="M14 11v6"/>
+                    <path d="M9 6V4h6v2"/>
+                </svg>
+            `;
+            deleteBtn.addEventListener('click', () => {
+                subjectPendingDeleteKey = subject.key;
+                subjectManagerFormError = '';
+                renderSubjectManager();
+            });
+            actions.appendChild(colorInput);
+            actions.appendChild(deleteBtn);
+        }
+
         row.appendChild(info);
         row.appendChild(actions);
         list.appendChild(row);
     });
+
+    const footer = subjectManagerModal.querySelector('[data-subject-manager-footer]');
+    if (!footer) return;
+    footer.textContent = '';
+
+    if (!subjectManagerAddMode) {
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'subject-manager-add-btn';
+        addBtn.textContent = '+ Lägg till nytt ämne';
+        addBtn.addEventListener('click', () => {
+            subjectManagerAddMode = true;
+            subjectManagerDraftName = '';
+            subjectManagerFormError = '';
+            renderSubjectManager();
+        });
+        footer.appendChild(addBtn);
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.className = 'subject-manager-form';
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const result = addSubject(subjectManagerDraftName);
+        if (!result.ok) {
+            subjectManagerFormError = result.message || 'Det gick inte att lägga till ämnet.';
+            renderSubjectManager();
+            return;
+        }
+        subjectManagerAddMode = false;
+        subjectManagerDraftName = '';
+        subjectManagerFormError = '';
+        renderSubjectManager();
+    });
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'subject-manager-text-input';
+    input.placeholder = 'Ämnesnamn';
+    input.value = subjectManagerDraftName;
+    input.setAttribute('aria-label', 'Namn på nytt ämne');
+    input.addEventListener('input', (event) => {
+        subjectManagerDraftName = event.target.value;
+        if (subjectManagerFormError) subjectManagerFormError = '';
+    });
+
+    const formActions = document.createElement('div');
+    formActions.className = 'subject-manager-form-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'subject-manager-cancel';
+    cancelBtn.textContent = 'Avbryt';
+    cancelBtn.addEventListener('click', () => {
+        subjectManagerAddMode = false;
+        subjectManagerDraftName = '';
+        subjectManagerFormError = '';
+        renderSubjectManager();
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'submit';
+    saveBtn.className = 'subject-manager-confirm-btn';
+    saveBtn.textContent = 'Lägg till';
+
+    formActions.appendChild(cancelBtn);
+    formActions.appendChild(saveBtn);
+    form.appendChild(input);
+    form.appendChild(formActions);
+
+    if (subjectManagerFormError) {
+        const error = document.createElement('p');
+        error.className = 'subject-manager-error';
+        error.textContent = subjectManagerFormError;
+        form.appendChild(error);
+    }
+
+    footer.appendChild(form);
+    setTimeout(() => input.focus(), 0);
 }
 
 function ensureSubjectManagerModal() {
@@ -245,16 +365,10 @@ function ensureSubjectManagerModal() {
             <button type="button" class="text-gray-400 hover:text-black font-bold text-xl leading-none" aria-label="Stäng ämneshanteraren">×</button>
         </div>
         <div class="subject-manager-list custom-scrollbar" data-subject-manager-list></div>
-        <button type="button" class="subject-manager-add-btn">+ Lägg till nytt ämne</button>
+        <div data-subject-manager-footer></div>
     `;
 
     panel.querySelector('button[aria-label="Stäng ämneshanteraren"]')?.addEventListener('click', closeSubjectManager);
-    panel.querySelector('.subject-manager-add-btn')?.addEventListener('click', () => {
-        const label = prompt('Namn på nytt ämne?');
-        if (label === null) return;
-        const result = addSubject(label);
-        if (!result.ok && result.message) alert(result.message);
-    });
 
     subjectManagerModal.appendChild(panel);
     document.body.appendChild(subjectManagerModal);
@@ -302,6 +416,7 @@ export function addSubject(label) {
         existing.hidden = false;
         existing.label = trimmed;
         existing.aliases = [...new Set([...(existing.aliases || []), normalizeLookupValue(trimmed)])];
+        subjectPendingDeleteKey = null;
         saveSubjects();
         renderSubjectManager();
         notifyListeners();
@@ -318,6 +433,7 @@ export function addSubject(label) {
     }, getAllSubjects().length);
 
     subjectCache = [...getAllSubjects(), subject];
+    subjectPendingDeleteKey = null;
     saveSubjects();
     renderSubjectManager();
     notifyListeners();
@@ -344,6 +460,7 @@ export function deleteSubject(key) {
     if (!subject || subject.hidden) return { ok: false, message: 'Ämnet hittades inte.' };
 
     subject.hidden = true;
+    subjectPendingDeleteKey = null;
     saveSubjects();
     renderSubjectManager();
     notifyListeners();
@@ -357,6 +474,10 @@ export function openSubjectManager() {
 }
 
 export function closeSubjectManager() {
+    subjectPendingDeleteKey = null;
+    subjectManagerAddMode = false;
+    subjectManagerDraftName = '';
+    subjectManagerFormError = '';
     if (subjectManagerModal) subjectManagerModal.classList.add('hidden');
 }
 
