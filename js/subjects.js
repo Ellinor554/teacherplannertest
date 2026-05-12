@@ -3,7 +3,6 @@ import { DEFAULT_SUBJECTS } from './config.js';
 const SUBJECT_STORAGE_KEY = 'teacher_planner_subjects';
 const SUBJECT_FALLBACK_COLOR = '#a6857e';
 const SUBJECT_ICON_FALLBACK = 'Ä';
-const SUBJECT_COLOR_SEQUENCE = DEFAULT_SUBJECTS.map((subject) => subject.color?.bg).filter(Boolean);
 
 const listeners = new Set();
 
@@ -160,7 +159,9 @@ function findSubjectByNameInternal(subjectName) {
 }
 
 function getNextSubjectColor() {
-    return SUBJECT_COLOR_SEQUENCE[getAllSubjects().filter((subject) => !subject.hidden).length % SUBJECT_COLOR_SEQUENCE.length] || SUBJECT_FALLBACK_COLOR;
+    const defaultPalette = DEFAULT_SUBJECTS.map((subject) => subject.color?.bg).filter(Boolean);
+    if (!defaultPalette.length) return SUBJECT_FALLBACK_COLOR;
+    return defaultPalette[getAllSubjects().filter((subject) => !subject.hidden).length % defaultPalette.length] || SUBJECT_FALLBACK_COLOR;
 }
 
 function renderSubjectManager() {
@@ -340,7 +341,7 @@ function renderSubjectManager() {
     }
 
     footer.appendChild(form);
-    setTimeout(() => input.focus(), 0);
+    input.focus();
 }
 
 function ensureSubjectManagerModal() {
