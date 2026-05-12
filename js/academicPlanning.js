@@ -705,7 +705,11 @@ function renderCurriculumMap() {
 
                 const card = document.createElement(isSelectMode ? 'button' : 'div');
                 card.className = 'curriculum-map-card';
-                if (!isSelectMode) card.classList.add('readonly');
+                if (!isSelectMode) {
+                    card.classList.add('readonly');
+                    card.setAttribute('role', 'listitem');
+                    card.tabIndex = 0;
+                }
                 card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
                 card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
 
