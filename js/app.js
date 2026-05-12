@@ -22,7 +22,7 @@ import {
 import {
     initAcademicPlanning, renderAcademicPlanningView,
     openPlanningPresentationPicker, closePlanningPresentationPicker,
-    openCurriculumMap
+    openCurriculumMap, archiveCurrentYear, openArchiveOverlay
 } from './academicPlanning.js';
 import {
     initTodo, toggleTodoPanel, closeTodoPanel,
@@ -82,6 +82,8 @@ window.addSavedPresentationFromSettings = addSavedPresentationFromSettings;
 window.openPlanningPresentationPicker = openPlanningPresentationPicker;
 window.closePlanningPresentationPicker = closePlanningPresentationPicker;
 window.openCurriculumMap = openCurriculumMap;
+window.archiveCurrentYear = archiveCurrentYear;
+window.openArchiveOverlay = openArchiveOverlay;
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 window.onload = () => {

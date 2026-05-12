@@ -24,6 +24,7 @@
         <button onclick="changeView('torsdag')" id="btn-torsdag" class="sidebar-btn">Torsdag</button>
         <button onclick="changeView('fredag')" id="btn-fredag" class="sidebar-btn">Fredag</button>
         <button onclick="changeView('lasarsplanering')" id="btn-lasarsplanering" class="sidebar-btn sidebar-btn-separator">Läsårsplanering</button>
+        <button onclick="openArchiveOverlay()" id="btn-archive" class="sidebar-btn sidebar-btn-archive">Arkiv</button>
     </div>
     <div class="flex-1 flex flex-col p-6 overflow-hidden">
         <div class="flex justify-between items-center mb-6">
@@ -34,6 +35,7 @@
             </div>
             <h1 id="academic-planning-title" class="hidden text-4xl serif-title">Läsårsplanering</h1>
             <div class="flex items-center gap-3">
+                <button id="arkivera-top-btn" class="hidden arkivera-header-btn" onclick="archiveCurrentYear()">Arkivera Läsår</button>
                 <button id="kursplan-top-btn" class="hidden kursplan-header-btn" onclick="openCurriculumMap('view')">Kursplan</button>
                 <div id="digital-clock" class="clock-display tracking-widest">00:00</div>
             </div>

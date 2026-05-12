@@ -1222,3 +1222,434 @@ export function openPlanningPresentationPicker() {
 export function initAcademicPlanning() {
     academicData = loadAcademicData();
 }
+
+// ── Academic Year Archive ──────────────────────────────────────────────────
+
+const ARCHIVE_STORAGE_KEY = 'teacherplanner_academic_archive';
+
+function loadArchiveData() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(ARCHIVE_STORAGE_KEY) || '{"years":[]}');
+        if (!parsed || !Array.isArray(parsed.years)) return { years: [] };
+        return parsed;
+    } catch {
+        return { years: [] };
+    }
+}
+
+function saveArchiveDataToStorage(data) {
+    localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(data));
+}
+
+export function archiveCurrentYear() {
+    const label = prompt('Ange ett namn för läsåret (t.ex. "2024/2025"):', `${new Date().getFullYear()}/${new Date().getFullYear() + 1}`);
+    if (label === null) return; // cancelled
+    const yearLabel = label.trim() || `${new Date().getFullYear()}/${new Date().getFullYear() + 1}`;
+
+    // Check if any subject has areas to archive
+    const hasAreas = SUBJECT_DEFINITIONS.some((def) => getSubject(def.key).areas.length > 0);
+    if (!hasAreas) {
+        if (!confirm('Inga aktiva områden finns att arkivera. Vill du ändå skapa ett tomt arkiv och nollställa Kursplan-markeringar?')) return;
+    }
+
+    const archiveData = loadArchiveData();
+    const snapshot = {
+        id: createId('archive'),
+        label: yearLabel,
+        archivedAt: new Date().toISOString(),
+        subjects: {},
+    };
+
+    SUBJECT_DEFINITIONS.forEach((subjectDef) => {
+        const subject = getSubject(subjectDef.key);
+        const areas = getSortedAreas(subjectDef.key);
+
+        snapshot.subjects[subjectDef.key] = {
+            areas: areas.map((area) => {
+                ensureAreaDefaults(area);
+                const coreContentTexts = getAreaCoreContentItems(subjectDef.key, area).map((item) => item.text);
+                return {
+                    id: area.id,
+                    title: area.title,
+                    startWeek: area.startWeek,
+                    endWeek: area.endWeek,
+                    plan: area.plan || '',
+                    presentations: area.presentations.map((p) => ({ ...p })),
+                    videos: area.videos.map((v) => ({ ...v })),
+                    coreContentTexts,
+                };
+            }),
+        };
+
+        // Clear active areas (Kursplan masterSections remain untouched)
+        subject.areas = [];
+        // Reset all KLART (done) marks in Kursplan
+        getAllMasterItems(subject).forEach((item) => { item.done = false; });
+    });
+
+    archiveData.years.unshift(snapshot); // most recent first
+    saveArchiveDataToStorage(archiveData);
+    saveAcademicData();
+    renderAcademicPlanningView();
+    alert(`Läsåret "${yearLabel}" har arkiverats. Alla områden är nu rensade för ett nytt läsår.`);
+}
+
+// ── Archive Overlay ────────────────────────────────────────────────────────
+
+let archiveOverlayEscapeHandler = null;
+let archiveSelectedYearId = null;
+
+function closeArchiveOverlay() {
+    const overlay = document.getElementById('archive-overlay');
+    if (overlay) {
+        overlay.classList.add('arch-closing');
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('arch-closing');
+        }, 220);
+    }
+    if (archiveOverlayEscapeHandler) {
+        document.removeEventListener('keydown', archiveOverlayEscapeHandler);
+        archiveOverlayEscapeHandler = null;
+    }
+}
+
+function renderArchiveYearDetail(container, yearSnapshot) {
+    container.textContent = '';
+    if (!yearSnapshot) {
+        const ph = document.createElement('p');
+        ph.className = 'archive-detail-placeholder';
+        ph.textContent = 'Välj ett läsår från listan till vänster.';
+        container.appendChild(ph);
+        return;
+    }
+
+    SUBJECT_DEFINITIONS.forEach((subjectDef) => {
+        const subjectArchive = yearSnapshot.subjects[subjectDef.key];
+        const areas = subjectArchive?.areas || [];
+        if (!areas.length) return;
+
+        const section = document.createElement('div');
+        section.className = 'archive-subject-section';
+
+        const heading = document.createElement('h3');
+        heading.className = 'archive-subject-heading';
+
+        const badge = document.createElement('span');
+        badge.className = 'archive-subject-badge';
+        badge.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+        badge.textContent = subjectDef.icon;
+
+        heading.appendChild(badge);
+        heading.appendChild(document.createTextNode(subjectDef.label));
+        section.appendChild(heading);
+
+        const cards = document.createElement('div');
+        cards.className = 'archive-area-cards';
+
+        areas.forEach((area) => {
+            const card = document.createElement('div');
+            card.className = 'archive-area-card';
+            card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+            card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'archive-area-card-title';
+            titleEl.textContent = area.title || 'Namnlöst område';
+            card.appendChild(titleEl);
+
+            const weeks = document.createElement('div');
+            weeks.className = 'archive-area-card-weeks';
+            weeks.textContent = `v. ${sanitizeWeek(area.startWeek, 1)}–${sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1))}`;
+            card.appendChild(weeks);
+
+            if (area.plan && area.plan.trim()) {
+                const plan = document.createElement('div');
+                plan.className = 'archive-area-card-plan';
+                plan.textContent = area.plan.trim();
+                card.appendChild(plan);
+            }
+
+            if (area.coreContentTexts && area.coreContentTexts.length) {
+                const chips = document.createElement('div');
+                chips.className = 'archive-area-card-curriculum';
+                area.coreContentTexts.slice(0, 4).forEach((text) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'archive-area-chip';
+                    chip.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+                    chip.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+                    chip.textContent = text;
+                    chip.title = text;
+                    chips.appendChild(chip);
+                });
+                if (area.coreContentTexts.length > 4) {
+                    const more = document.createElement('span');
+                    more.className = 'archive-area-chip';
+                    more.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
+                    more.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+                    more.textContent = `+${area.coreContentTexts.length - 4} till`;
+                    chips.appendChild(more);
+                }
+                card.appendChild(chips);
+            }
+
+            const reuseBtn = document.createElement('button');
+            reuseBtn.type = 'button';
+            reuseBtn.className = 'archive-reuse-btn';
+            reuseBtn.textContent = 'Kopiera till aktuellt år';
+            reuseBtn.addEventListener('click', () => openReuseWeekModal(subjectDef.key, area));
+            card.appendChild(reuseBtn);
+
+            cards.appendChild(card);
+        });
+
+        section.appendChild(cards);
+        container.appendChild(section);
+    });
+
+    const hasAny = SUBJECT_DEFINITIONS.some((def) => (yearSnapshot.subjects[def.key]?.areas || []).length > 0);
+    if (!hasAny) {
+        const ph = document.createElement('p');
+        ph.className = 'archive-detail-placeholder';
+        ph.textContent = 'Detta läsår innehåller inga arkiverade områden.';
+        container.appendChild(ph);
+    }
+}
+
+function renderArchiveOverlay() {
+    let overlay = document.getElementById('archive-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'archive-overlay';
+        document.body.appendChild(overlay);
+    }
+    overlay.className = 'archive-overlay';
+    overlay.classList.remove('hidden', 'arch-closing');
+    overlay.textContent = '';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'archive-header';
+
+    const titleWrap = document.createElement('div');
+    const title = document.createElement('h2');
+    title.className = 'archive-header-title';
+    title.textContent = 'Läsårsarkiv';
+    const sub = document.createElement('p');
+    sub.className = 'archive-header-sub';
+    sub.textContent = 'Bläddra bland arkiverade läsår och återanvänd planeringsområden.';
+    titleWrap.appendChild(title);
+    titleWrap.appendChild(sub);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'archive-close-btn';
+    closeBtn.textContent = '× Stäng';
+    closeBtn.addEventListener('click', closeArchiveOverlay);
+
+    header.appendChild(titleWrap);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'archive-body';
+
+    // Year list sidebar
+    const yearList = document.createElement('div');
+    yearList.className = 'archive-year-list custom-scrollbar';
+
+    const archiveData = loadArchiveData();
+    const detail = document.createElement('div');
+    detail.className = 'archive-detail custom-scrollbar';
+
+    if (!archiveData.years.length) {
+        const empty = document.createElement('p');
+        empty.className = 'archive-year-empty';
+        empty.textContent = 'Inga arkiverade läsår ännu.';
+        yearList.appendChild(empty);
+
+        const ph = document.createElement('p');
+        ph.className = 'archive-detail-placeholder';
+        ph.textContent = 'Klicka på "Arkivera Läsår" i toppmenyn för att arkivera nuvarande läsår.';
+        detail.appendChild(ph);
+    } else {
+        // Select the most recent year (or previously selected)
+        const targetId = archiveSelectedYearId && archiveData.years.some((y) => y.id === archiveSelectedYearId)
+            ? archiveSelectedYearId
+            : archiveData.years[0].id;
+        archiveSelectedYearId = targetId;
+
+        archiveData.years.forEach((year) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'archive-year-btn';
+            if (year.id === archiveSelectedYearId) btn.classList.add('active');
+
+            const labelEl = document.createElement('div');
+            labelEl.textContent = year.label;
+
+            const metaEl = document.createElement('div');
+            metaEl.className = 'archive-year-meta';
+            metaEl.textContent = new Date(year.archivedAt).toLocaleDateString('sv-SE', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            btn.appendChild(labelEl);
+            btn.appendChild(metaEl);
+            btn.addEventListener('click', () => {
+                archiveSelectedYearId = year.id;
+                yearList.querySelectorAll('.archive-year-btn').forEach((b) => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderArchiveYearDetail(detail, year);
+            });
+            yearList.appendChild(btn);
+        });
+
+        const selectedYear = archiveData.years.find((y) => y.id === archiveSelectedYearId);
+        renderArchiveYearDetail(detail, selectedYear || null);
+    }
+
+    body.appendChild(yearList);
+    body.appendChild(detail);
+    overlay.appendChild(body);
+
+    if (!archiveOverlayEscapeHandler) {
+        archiveOverlayEscapeHandler = (e) => {
+            if (e.key === 'Escape') closeArchiveOverlay();
+        };
+        document.addEventListener('keydown', archiveOverlayEscapeHandler);
+    }
+}
+
+export function openArchiveOverlay() {
+    archiveSelectedYearId = null;
+    renderArchiveOverlay();
+}
+
+// ── Re-use (Återanvänd) ────────────────────────────────────────────────────
+
+function openReuseWeekModal(subjectKey, archivedArea) {
+    let modal = document.getElementById('archive-week-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'archive-week-modal';
+        document.body.appendChild(modal);
+    }
+    modal.className = 'archive-week-modal';
+    modal.classList.remove('hidden');
+    modal.textContent = '';
+
+    const panel = document.createElement('div');
+    panel.className = 'archive-week-panel';
+
+    const h3 = document.createElement('h3');
+    h3.textContent = `Kopiera "${archivedArea.title || 'Namnlöst område'}"`;
+    panel.appendChild(h3);
+
+    const p = document.createElement('p');
+    p.textContent = 'Ange veckointervall för det återanvända området:';
+    panel.appendChild(p);
+
+    const row = document.createElement('div');
+    row.className = 'archive-week-row';
+
+    const label = document.createElement('label');
+    label.textContent = 'v.';
+
+    const startInput = document.createElement('input');
+    startInput.type = 'number';
+    startInput.min = '1';
+    startInput.max = '52';
+    startInput.value = sanitizeWeek(archivedArea.startWeek, 1);
+    startInput.className = 'archive-week-input';
+
+    const dash = document.createElement('span');
+    dash.textContent = '–';
+
+    const endInput = document.createElement('input');
+    endInput.type = 'number';
+    endInput.min = '1';
+    endInput.max = '52';
+    endInput.value = sanitizeWeek(archivedArea.endWeek, sanitizeWeek(archivedArea.startWeek, 1));
+    endInput.className = 'archive-week-input';
+
+    row.appendChild(label);
+    row.appendChild(startInput);
+    row.appendChild(dash);
+    row.appendChild(endInput);
+    panel.appendChild(row);
+
+    const actions = document.createElement('div');
+    actions.className = 'archive-week-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'archive-week-cancel';
+    cancelBtn.textContent = 'Avbryt';
+    cancelBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'archive-week-confirm';
+    confirmBtn.textContent = 'Kopiera till aktuellt år';
+    confirmBtn.addEventListener('click', () => {
+        const newStart = sanitizeWeek(startInput.value, 1);
+        const newEnd = sanitizeWeek(endInput.value, newStart);
+        modal.classList.add('hidden');
+        reuseArchivedArea(subjectKey, archivedArea, newStart, newEnd);
+        closeArchiveOverlay();
+    });
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    panel.appendChild(actions);
+
+    modal.appendChild(panel);
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+}
+
+function reuseArchivedArea(subjectKey, archivedArea, newStartWeek, newEndWeek) {
+    academicData = loadAcademicData();
+    const subject = getSubject(subjectKey);
+    ensureSubjectDefaults(subject, subjectKey);
+
+    // Match archived coreContent texts to current masterSection items
+    const allMasterItems = getAllMasterItems(subject);
+    const coreContentIds = (archivedArea.coreContentTexts || []).reduce((ids, text) => {
+        const normalized = normalizeCoreContentText(text).toLowerCase();
+        const match = allMasterItems.find((item) =>
+            normalizeCoreContentText(item.text).toLowerCase() === normalized
+        );
+        if (match && !ids.includes(match.id)) ids.push(match.id);
+        return ids;
+    }, []);
+
+    const newArea = {
+        id: createId('area'),
+        title: archivedArea.title || 'Namnlöst område',
+        startWeek: newStartWeek,
+        endWeek: newEndWeek,
+        plan: archivedArea.plan || '',
+        presentations: (archivedArea.presentations || []).map((p) => ({ ...p, id: createId('link') })),
+        videos: (archivedArea.videos || []).map((v) => ({ ...v, id: createId('link') })),
+        coreContent: [],
+        coreContentIds,
+    };
+
+    subject.areas.push(newArea);
+    selectedSubjectKey = subjectKey;
+    selectedAreaId = newArea.id;
+    saveAcademicData();
+
+    // Switch to the lasarsplanering view if not already there
+    const lasarView = document.getElementById('view-lasarsplanering');
+    if (lasarView && lasarView.classList.contains('hidden')) {
+        // Trigger the view change without importing navigation to avoid circular deps
+        if (typeof window.changeView === 'function') window.changeView('lasarsplanering');
+    } else {
+        renderAcademicPlanningView();
+    }
+}
