@@ -33,7 +33,10 @@
                 <button onclick="changeWeek(1)" class="text-2xl font-bold hover:text-gray-600">&rsaquo;</button>
             </div>
             <h1 id="academic-planning-title" class="hidden text-4xl serif-title">Läsårsplanering</h1>
-            <div id="digital-clock" class="clock-display tracking-widest">00:00</div>
+            <div class="flex items-center gap-3">
+                <button id="kursplan-top-btn" class="hidden kursplan-header-btn" onclick="openCurriculumMap('view')">Kursplan</button>
+                <div id="digital-clock" class="clock-display tracking-widest">00:00</div>
+            </div>
         </div>
         <div id="view-oversikt" class="grid grid-cols-5 gap-4 h-full overflow-y-auto custom-scrollbar pb-10"></div>
         <div id="view-framtid" class="hidden overflow-y-auto custom-scrollbar pb-10">

@@ -740,7 +740,7 @@ function renderCurriculumMap() {
     overlay.appendChild(sectionsWrap);
 }
 
-function openCurriculumMap(mode = 'view') {
+export function openCurriculumMap(mode = 'view') {
     curriculumMapMode = mode;
     renderCurriculumMap();
     if (!curriculumMapEscapeHandler) {
@@ -800,13 +800,6 @@ function buildAreaPanel(container) {
     const headerRight = document.createElement('div');
     headerRight.className = 'academic-panel-header-right';
 
-    const curriculumBtn = document.createElement('button');
-    curriculumBtn.type = 'button';
-    curriculumBtn.className = 'academic-overview-btn';
-    curriculumBtn.textContent = 'Kursplan';
-    curriculumBtn.addEventListener('click', () => openCurriculumMap('view'));
-    headerRight.appendChild(curriculumBtn);
-
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'academic-add-btn';
@@ -822,69 +815,98 @@ function buildAreaPanel(container) {
     const areas = getSortedAreas(selectedSubjectKey);
     areas.forEach((area) => {
         ensureAreaDefaults(area);
+        const subjectDef = SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey);
+        const subjectColor = subjectDef?.color?.bg || '#a6857e';
+
         const item = document.createElement('div');
         item.className = 'academic-area-item';
         if (area.id === selectedAreaId) item.classList.add('active');
+        item.style.setProperty('--subject-color', subjectColor);
         item.addEventListener('click', () => {
             selectedAreaId = area.id;
             renderAcademicPlanningView();
         });
 
-        const topRow = document.createElement('div');
-        topRow.className = 'academic-area-top';
+        // Title — contenteditable, looks static until clicked
+        const titleDisplay = document.createElement('div');
+        titleDisplay.className = 'academic-area-title-display';
+        titleDisplay.setAttribute('contenteditable', 'true');
+        titleDisplay.setAttribute('spellcheck', 'false');
+        titleDisplay.setAttribute('data-placeholder', 'Titel');
+        titleDisplay.textContent = area.title || '';
+        titleDisplay.addEventListener('click', (e) => e.stopPropagation());
+        titleDisplay.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); titleDisplay.blur(); }
+        });
+        titleDisplay.addEventListener('input', () => {
+            setAreaField(selectedSubjectKey, area.id, 'title', titleDisplay.innerText.trim());
+        });
+        titleDisplay.addEventListener('blur', () => {
+            setAreaField(selectedSubjectKey, area.id, 'title', titleDisplay.innerText.trim());
+        });
+        titleDisplay.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            selection.deleteFromDocument();
+            const range = selection.getRangeAt(0);
+            range.insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
+        });
 
-        const titleInput = document.createElement('input');
-        titleInput.type = 'text';
-        titleInput.className = 'academic-area-title';
-        titleInput.value = area.title || '';
-        titleInput.placeholder = 'Titel';
-        titleInput.addEventListener('click', (e) => e.stopPropagation());
-        titleInput.addEventListener('input', () => setAreaField(selectedSubjectKey, area.id, 'title', titleInput.value));
+        // Week badge — styled inputs for start/end week
+        const weekBadge = document.createElement('div');
+        weekBadge.className = 'academic-area-week-badge';
 
+        const wLabel = document.createElement('span');
+        wLabel.textContent = 'v.\u00a0';
+
+        const startWeekInput = document.createElement('input');
+        startWeekInput.type = 'number';
+        startWeekInput.min = '1';
+        startWeekInput.max = '52';
+        startWeekInput.value = sanitizeWeek(area.startWeek, 1);
+        startWeekInput.className = 'academic-week-num-input';
+        startWeekInput.addEventListener('click', (e) => e.stopPropagation());
+        startWeekInput.addEventListener('change', () => setAreaField(selectedSubjectKey, area.id, 'startWeek', startWeekInput.value, true));
+
+        const separator = document.createElement('span');
+        separator.textContent = '\u2013';
+
+        const endWeekInput = document.createElement('input');
+        endWeekInput.type = 'number';
+        endWeekInput.min = '1';
+        endWeekInput.max = '52';
+        endWeekInput.value = sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1));
+        endWeekInput.className = 'academic-week-num-input';
+        endWeekInput.addEventListener('click', (e) => e.stopPropagation());
+        endWeekInput.addEventListener('change', () => setAreaField(selectedSubjectKey, area.id, 'endWeek', endWeekInput.value, true));
+
+        weekBadge.appendChild(wLabel);
+        weekBadge.appendChild(startWeekInput);
+        weekBadge.appendChild(separator);
+        weekBadge.appendChild(endWeekInput);
+
+        // Card body row: title + week badge
+        const cardContent = document.createElement('div');
+        cardContent.className = 'academic-area-card-content';
+        cardContent.appendChild(titleDisplay);
+        cardContent.appendChild(weekBadge);
+
+        // Delete button — visible only on hover via CSS
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
-        deleteBtn.className = 'academic-delete-btn';
+        deleteBtn.className = 'academic-area-delete-btn';
         deleteBtn.textContent = '×';
+        deleteBtn.setAttribute('aria-label', 'Ta bort område');
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             deleteArea(selectedSubjectKey, area.id);
         });
 
-        topRow.appendChild(titleInput);
-        topRow.appendChild(deleteBtn);
-
-        const weekRow = document.createElement('div');
-        weekRow.className = 'academic-week-row';
-
-        const startInput = document.createElement('input');
-        startInput.type = 'number';
-        startInput.min = '1';
-        startInput.max = '52';
-        startInput.value = sanitizeWeek(area.startWeek, 1);
-        startInput.className = 'academic-week-input';
-        startInput.addEventListener('click', (e) => e.stopPropagation());
-        startInput.addEventListener('change', () => setAreaField(selectedSubjectKey, area.id, 'startWeek', startInput.value, true));
-
-        const endInput = document.createElement('input');
-        endInput.type = 'number';
-        endInput.min = '1';
-        endInput.max = '52';
-        endInput.value = sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1));
-        endInput.className = 'academic-week-input';
-        endInput.addEventListener('click', (e) => e.stopPropagation());
-        endInput.addEventListener('change', () => setAreaField(selectedSubjectKey, area.id, 'endWeek', endInput.value, true));
-
-        const label = document.createElement('span');
-        label.className = 'academic-week-label';
-        label.textContent = `v. ${sanitizeWeek(area.startWeek, 1)}-${sanitizeWeek(area.endWeek, sanitizeWeek(area.startWeek, 1))}`;
-
-        weekRow.appendChild(startInput);
-        weekRow.appendChild(document.createTextNode('–'));
-        weekRow.appendChild(endInput);
-        weekRow.appendChild(label);
-
-        item.appendChild(topRow);
-        item.appendChild(weekRow);
+        item.appendChild(cardContent);
+        item.appendChild(deleteBtn);
         list.appendChild(item);
     });
 

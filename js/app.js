@@ -21,7 +21,8 @@ import {
 } from './ui.js';
 import {
     initAcademicPlanning, renderAcademicPlanningView,
-    openPlanningPresentationPicker, closePlanningPresentationPicker
+    openPlanningPresentationPicker, closePlanningPresentationPicker,
+    openCurriculumMap
 } from './academicPlanning.js';
 import {
     initTodo, toggleTodoPanel, closeTodoPanel,
@@ -80,6 +81,7 @@ window.toggleCompletedSection = toggleCompletedSection;
 window.addSavedPresentationFromSettings = addSavedPresentationFromSettings;
 window.openPlanningPresentationPicker = openPlanningPresentationPicker;
 window.closePlanningPresentationPicker = closePlanningPresentationPicker;
+window.openCurriculumMap = openCurriculumMap;
 
 // ── Initialisation ──────────────────────────────────────────────────────────
 window.onload = () => {

@@ -5,6 +5,25 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 .sidebar-btn-separator { margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.3); }
 .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #d1cfcb; }
 .clock-display { background-color: #9eb19a; color: white; padding: 0.5rem 1rem; border-radius: 10px; font-family: monospace; font-size: 1.5rem; font-weight: bold; }
+.kursplan-header-btn {
+    border: 1.5px solid #cdb9a7;
+    background: linear-gradient(135deg, #fdf6ee 0%, #f5ebe0 100%);
+    color: #8c6d55;
+    border-radius: 10px;
+    padding: 0.4rem 1rem;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+.kursplan-header-btn:hover {
+    background: linear-gradient(135deg, #f5ebe0 0%, #ede0ce 100%);
+    border-color: #b8967e;
+    color: #7a5c46;
+}
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1cfcb; border-radius: 10px; }
 #active-tool-container.hidden-tool { display: none; }
@@ -347,47 +366,111 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     overflow-y: auto;
 }
 .academic-area-item {
+    position: relative;
     border: 1px solid #ebe4d8;
+    border-left: 4px solid var(--subject-color, #a6857e);
     border-radius: 10px;
     background: #fff;
-    padding: 10px;
+    padding: 10px 34px 10px 12px;
     cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
 }
 .academic-area-item.active {
-    border-color: #a6857e;
+    border-color: var(--subject-color, #a6857e);
     box-shadow: 0 2px 10px rgba(166, 133, 126, 0.12);
 }
-.academic-area-top {
+.academic-area-item:hover {
+    background: #fdfaf6;
+}
+.academic-area-card-content {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: 8px;
 }
-.academic-area-title {
+.academic-area-title-display {
     flex: 1;
-    border: 1px solid #ece8df;
-    border-radius: 7px;
-    padding: 7px 8px;
     font-size: 13px;
-    background: #fcfbf8;
+    font-weight: 600;
+    color: #3d3530;
+    outline: none;
+    cursor: text;
+    min-width: 0;
+    word-break: break-word;
+    line-height: 1.45;
+    border-radius: 5px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    transition: background 0.12s;
 }
-.academic-week-row {
-    margin-top: 8px;
+.academic-area-title-display:empty::before {
+    content: attr(data-placeholder);
+    color: #c0b8b0;
+    pointer-events: none;
+}
+.academic-area-title-display:focus {
+    background: rgba(246, 240, 230, 0.7);
+}
+.academic-area-week-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    background: var(--subject-color, #a6857e);
+    color: #fff;
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.academic-week-num-input {
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    width: 22px;
+    text-align: center;
+    outline: none;
+    padding: 0;
+    cursor: pointer;
+    -moz-appearance: textfield;
+}
+.academic-week-num-input::-webkit-outer-spin-button,
+.academic-week-num-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+}
+.academic-week-num-input:focus {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+}
+.academic-area-delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    border: 0;
+    background: transparent;
+    color: #b9aca0;
+    font-size: 18px;
+    width: 24px;
+    height: 24px;
+    line-height: 1;
     display: flex;
     align-items: center;
-    gap: 6px;
-    color: #9d938a;
-    font-size: 11px;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.academic-week-input {
-    width: 56px;
-    border: 1px solid #ece8df;
-    border-radius: 7px;
-    padding: 4px 6px;
-    font-size: 12px;
+.academic-area-delete-btn:hover {
+    color: #d97771;
+    background: rgba(217, 119, 113, 0.1);
 }
-.academic-week-label {
-    margin-left: auto;
-    font-weight: 700;
+.academic-area-item:hover .academic-area-delete-btn {
+    opacity: 1;
 }
 .academic-delete-btn {
     border: 0;
@@ -397,6 +480,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     width: 24px;
     height: 24px;
     line-height: 1;
+    cursor: pointer;
 }
 .academic-dashboard {
     flex: 1;
