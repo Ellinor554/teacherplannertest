@@ -1177,10 +1177,6 @@ function normalizeHref(url) {
     }
 }
 
-function buildPlanHtml(planText) {
-    return escapeHtml(planText || '').replace(/\n/g, '<br>');
-}
-
 function buildResourceSectionHtml(title, links) {
     if (!links.length) return '';
     const items = links.map((item) => {
@@ -1191,6 +1187,70 @@ function buildResourceSectionHtml(title, links) {
     }).filter(Boolean).join('');
     if (!items) return '';
     return `<p><strong>${escapeHtml(title)}</strong></p><ul>${items}</ul>`;
+}
+
+function getAreaResourceLinks(items) {
+    return (Array.isArray(items) ? items : []).map((item) => {
+        const href = normalizeHref(item?.url);
+        if (!href) return null;
+        return {
+            title: String(item?.title || '').trim() || href,
+            url: href,
+        };
+    }).filter(Boolean);
+}
+
+function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
+    const section = document.createElement('section');
+    section.className = 'planning-picker-section';
+
+    const heading = document.createElement('h4');
+    heading.className = 'planning-picker-section-title';
+    heading.textContent = sectionTitle;
+    section.appendChild(heading);
+
+    if (!links.length) {
+        const empty = document.createElement('p');
+        empty.className = 'planning-picker-empty';
+        empty.textContent = 'Inga länkar i aktivt område.';
+        section.appendChild(empty);
+        return section;
+    }
+
+    links.forEach((resource) => {
+        const row = document.createElement('label');
+        row.className = 'planning-picker-item planning-picker-item-select';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'planning-picker-checkbox';
+        checkbox.dataset.fetchKind = kind;
+        checkbox.dataset.fetchUrl = resource.url;
+        checkbox.dataset.fetchTitle = resource.title;
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'planning-picker-link-wrap';
+
+        const link = document.createElement('a');
+        link.className = 'planning-picker-link';
+        link.href = resource.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = resource.title;
+        link.addEventListener('click', (event) => event.stopPropagation());
+
+        const meta = document.createElement('span');
+        meta.className = 'planning-picker-meta';
+        meta.textContent = resource.url;
+
+        textWrap.appendChild(link);
+        textWrap.appendChild(meta);
+        row.appendChild(checkbox);
+        row.appendChild(textWrap);
+        section.appendChild(row);
+    });
+
+    return section;
 }
 
 function appendChunkToEditable(element, chunkHtml) {
@@ -1237,37 +1297,19 @@ export function openPlanningPresentationPicker() {
 
     subjectText.textContent = `${subject ? subject.label : lesson.subject} • ${activeArea.title || 'Område'} • v. ${sanitizeWeek(activeArea.startWeek, 1)}-${sanitizeWeek(activeArea.endWeek, sanitizeWeek(activeArea.startWeek, 1))}`;
     list.textContent = '';
-    const presentationCount = activeArea.presentations.filter((item) => item.url).length;
-    const videoCount = activeArea.videos.filter((item) => item.url).length;
-    const options = [
-        { key: 'plan', label: 'Planeringstext', meta: 'Hämtar planeringstext från aktivt område' },
-        { key: 'presentations', label: 'Presentationer', meta: `Hämtar ${presentationCount} länk(ar)` },
-        { key: 'videos', label: 'Filmer', meta: `Hämtar ${videoCount} länk(ar)` },
-    ];
-    options.forEach((option) => {
-        const row = document.createElement('label');
-        row.className = 'planning-picker-item planning-picker-item-select';
+    const presentations = getAreaResourceLinks(activeArea.presentations);
+    const videos = getAreaResourceLinks(activeArea.videos);
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'planning-picker-checkbox';
-        checkbox.dataset.fetchOption = option.key;
-
-        const textWrap = document.createElement('div');
-        const title = document.createElement('span');
-        title.className = 'planning-picker-title';
-        title.textContent = option.label;
-
-        const meta = document.createElement('span');
-        meta.className = 'planning-picker-meta';
-        meta.textContent = option.meta;
-
-        textWrap.appendChild(title);
-        textWrap.appendChild(meta);
-        row.appendChild(checkbox);
-        row.appendChild(textWrap);
-        list.appendChild(row);
-    });
+    list.appendChild(buildPlanningPickerResourceSection({
+        sectionTitle: 'Presentationer',
+        kind: 'presentations',
+        links: presentations,
+    }));
+    list.appendChild(buildPlanningPickerResourceSection({
+        sectionTitle: 'Filmer',
+        kind: 'videos',
+        links: videos,
+    }));
     planningPickerContext = { subjectKey, areaId: activeArea.id };
 
     modal.classList.remove('hidden');
@@ -1290,27 +1332,22 @@ export function applyPlanningSelection() {
     }
     ensureAreaDefaults(activeArea);
 
-    const selected = [...list.querySelectorAll('input[data-fetch-option]:checked')]
-        .map((input) => input.dataset.fetchOption);
-    if (!selected.length) return;
+    const selectedResources = [...list.querySelectorAll('input[data-fetch-url]:checked')]
+        .map((input) => ({
+            kind: input.dataset.fetchKind,
+            title: input.dataset.fetchTitle,
+            url: input.dataset.fetchUrl,
+        }))
+        .filter((item) => item.kind && item.url);
+    if (!selectedResources.length) return;
 
-    const left = document.getElementById('sb-plan');
     const right = document.getElementById('sb-plan-right');
-    if (selected.includes('plan')) {
-        const planHtml = buildPlanHtml(activeArea.plan);
-        if (planHtml) {
-            if (appendChunkToEditable(left, planHtml)) lesson.plan = left.innerHTML;
-            else lesson.plan = `${lesson.plan || ''}${lesson.plan ? '<div><br></div>' : ''}${planHtml}`;
-        }
-    }
 
     const resourceSections = [];
-    if (selected.includes('presentations')) {
-        resourceSections.push(buildResourceSectionHtml('Presentationer', activeArea.presentations.filter((item) => item.url)));
-    }
-    if (selected.includes('videos')) {
-        resourceSections.push(buildResourceSectionHtml('Filmer', activeArea.videos.filter((item) => item.url)));
-    }
+    const selectedPresentations = selectedResources.filter((item) => item.kind === 'presentations');
+    const selectedVideos = selectedResources.filter((item) => item.kind === 'videos');
+    if (selectedPresentations.length) resourceSections.push(buildResourceSectionHtml('Presentationer', selectedPresentations));
+    if (selectedVideos.length) resourceSections.push(buildResourceSectionHtml('Filmer', selectedVideos));
     const resourceHtml = resourceSections.filter(Boolean).join('<div><br></div>');
     if (resourceHtml) {
         if (appendChunkToEditable(right, resourceHtml)) lesson.planRight = right.innerHTML;
