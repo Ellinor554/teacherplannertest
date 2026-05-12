@@ -22,6 +22,7 @@ const PRESENTATION_SIZE_PRESETS = {
     S: { width: 480 },
     M: { width: 720 },
     L: { width: 960 },
+    XL: { fullscreen: true },
 };
 const PRESENTATION_DEFAULT_PRESET = 'M';
 
@@ -29,6 +30,17 @@ let presentationLibrary = [];
 let presentationRecent = [];
 
 loadPresentationData();
+
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const fullscreenTool = document.querySelector('.floating-tool.presentation-tool.presentation-fullscreen');
+    if (!fullscreenTool) return;
+    event.preventDefault();
+    exitPresentationFullscreen(fullscreenTool);
+    refreshPresentationLayout(fullscreenTool, true);
+    const key = fullscreenTool.dataset.lessonKey;
+    if (key) _saveToolsForKey(key);
+});
 
 // SVG icon used as a visual resize-handle cue in every tool's bottom-right corner.
 function createResizeHintIcon() {
@@ -83,6 +95,8 @@ function _captureToolState(tool) {
         state.content = textarea ? textarea.value : '';
     } else if (type === 'presentation') {
         state.url = tool.dataset.activeUrl || '';
+        state.preset = tool.querySelector('.presentation-size-btn.active')?.dataset.preset || PRESENTATION_DEFAULT_PRESET;
+        state.fullscreen = tool.classList.contains('presentation-fullscreen');
     }
     return state;
 }
@@ -314,7 +328,7 @@ export function openTool(type, options = {}) {
         const presetWrap = document.createElement('div');
         presetWrap.className = 'presentation-size-presets';
 
-        ['S', 'M', 'L'].forEach((presetKey) => {
+        ['S', 'M', 'L', 'XL'].forEach((presetKey) => {
             const presetBtn = document.createElement('button');
             presetBtn.type = 'button';
             presetBtn.className = 'presentation-size-btn';
@@ -524,9 +538,14 @@ export function openTool(type, options = {}) {
         }
     } else if (type === 'presentation') {
         setTimeout(() => {
-            // Only apply the default size preset when NOT restoring a saved state
-            if (savedState?.width == null) {
+            if (savedState?.fullscreen) {
+                enterPresentationFullscreen(tool);
+                markPresentationPresetButton(tool, 'XL');
+            } else if (savedState?.width == null) {
+                // Only apply the default size preset when NOT restoring a saved state
                 applyPresentationPresetSize(tool, PRESENTATION_DEFAULT_PRESET);
+            } else {
+                markPresentationPresetButton(tool, savedState?.preset || PRESENTATION_DEFAULT_PRESET);
             }
             tool._resizeObserver = enforcePresentationAspectRatio(tool);
         }, 0);
@@ -536,6 +555,13 @@ export function openTool(type, options = {}) {
 function applyPresentationPresetSize(tool, presetKey) {
     const preset = PRESENTATION_SIZE_PRESETS[presetKey] || PRESENTATION_SIZE_PRESETS[PRESENTATION_DEFAULT_PRESET];
     if (!preset) return;
+    if (preset.fullscreen) {
+        enterPresentationFullscreen(tool);
+        markPresentationPresetButton(tool, 'XL');
+        refreshPresentationLayout(tool, true);
+        return;
+    }
+    exitPresentationFullscreen(tool);
     const header = tool.querySelector('.floating-tool-header');
     const headerHeight = header ? header.offsetHeight : 0;
     const { w, h } = clampPresentationSize(preset.width, headerHeight, 'width');
@@ -545,10 +571,50 @@ function applyPresentationPresetSize(tool, presetKey) {
     const top = Math.max(0, Math.min(tool.offsetTop, window.innerHeight - h));
     tool.style.left = `${left}px`;
     tool.style.top = `${top}px`;
+    markPresentationPresetButton(tool, presetKey);
+    refreshPresentationLayout(tool);
+}
+
+function markPresentationPresetButton(tool, presetKey) {
     tool.querySelectorAll('.presentation-size-btn').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.preset === presetKey);
     });
-    refreshPresentationLayout(tool);
+}
+
+function enterPresentationFullscreen(tool) {
+    if (tool.classList.contains('presentation-fullscreen')) return;
+    tool.dataset.preFullscreenLeft = tool.style.left || `${tool.offsetLeft}px`;
+    tool.dataset.preFullscreenTop = tool.style.top || `${tool.offsetTop}px`;
+    tool.dataset.preFullscreenWidth = tool.style.width || `${tool.offsetWidth}px`;
+    tool.dataset.preFullscreenHeight = tool.style.height || `${tool.offsetHeight}px`;
+    const activePreset = tool.querySelector('.presentation-size-btn.active')?.dataset.preset;
+    tool.dataset.preFullscreenPreset = activePreset && activePreset !== 'XL' ? activePreset : PRESENTATION_DEFAULT_PRESET;
+    tool.classList.add('presentation-fullscreen');
+    tool.style.left = '0px';
+    tool.style.top = '0px';
+    tool.style.width = '100vw';
+    tool.style.height = '100vh';
+}
+
+function exitPresentationFullscreen(tool) {
+    if (!tool.classList.contains('presentation-fullscreen')) return;
+    tool.classList.remove('presentation-fullscreen');
+    tool.style.left = tool.dataset.preFullscreenLeft || tool.style.left;
+    tool.style.top = tool.dataset.preFullscreenTop || tool.style.top;
+    tool.style.width = tool.dataset.preFullscreenWidth || tool.style.width;
+    tool.style.height = tool.dataset.preFullscreenHeight || tool.style.height;
+    const header = tool.querySelector('.floating-tool-header');
+    const headerHeight = header ? header.offsetHeight : 0;
+    const requestedWidth = parseFloat(tool.style.width) || tool.offsetWidth || PRESENTATION_MIN_WIDTH;
+    const { w, h } = clampPresentationSize(requestedWidth, headerHeight, 'width');
+    tool.style.width = `${w}px`;
+    tool.style.height = `${h}px`;
+    const left = Math.max(0, Math.min(parseFloat(tool.style.left) || 0, window.innerWidth - w));
+    const top = Math.max(0, Math.min(parseFloat(tool.style.top) || 0, window.innerHeight - h));
+    tool.style.left = `${left}px`;
+    tool.style.top = `${top}px`;
+    const restoredPreset = tool.dataset.preFullscreenPreset || PRESENTATION_DEFAULT_PRESET;
+    markPresentationPresetButton(tool, restoredPreset);
 }
 
 function normalizePresentationUrl(raw) {
@@ -779,8 +845,19 @@ function initPresentationTool(tool, body, launchUrl) {
             }
         });
 
+        const exitFullscreenBtn = document.createElement('button');
+        exitFullscreenBtn.className = 'presentation-overlay-btn presentation-exit-fullscreen-btn';
+        exitFullscreenBtn.textContent = '×';
+        exitFullscreenBtn.title = 'Avsluta helskärm';
+        exitFullscreenBtn.setAttribute('aria-label', 'Avsluta helskärm');
+        exitFullscreenBtn.addEventListener('click', () => {
+            exitPresentationFullscreen(tool);
+            refreshPresentationLayout(tool, true);
+        });
+
         controls.appendChild(backBtn);
         controls.appendChild(saveBtn);
+        controls.appendChild(exitFullscreenBtn);
 
         const iframe = document.createElement('iframe');
         iframe.src = normalized.embedUrl;
@@ -857,6 +934,11 @@ function enforcePresentationAspectRatio(tool) {
     };
 
     const enforceSize = (requestedWidth, requestedHeight) => {
+        if (tool.classList.contains('presentation-fullscreen')) {
+            lastWidth = tool.offsetWidth || window.innerWidth;
+            lastHeight = tool.offsetHeight || window.innerHeight;
+            return;
+        }
         const widthDelta = Math.abs((requestedWidth || 0) - lastWidth);
         const heightDelta = Math.abs((requestedHeight || 0) - lastHeight);
         const lockBy = heightDelta > widthDelta ? 'height' : 'width';
@@ -896,6 +978,10 @@ function enforcePresentationAspectRatio(tool) {
     ro.observe(tool);
     const handleWindowResize = () => {
         if (adjusting) return;
+        if (tool.classList.contains('presentation-fullscreen')) {
+            refreshPresentationLayout(tool);
+            return;
+        }
         enforceSize(tool.offsetWidth || PRESENTATION_MIN_WIDTH, tool.offsetHeight || PRESENTATION_MIN_HEIGHT);
         queueRefresh();
     };
