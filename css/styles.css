@@ -1258,7 +1258,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
 .planning-picker-meta {
     font-size: 11px;
     color: #a89c92;
-    word-break: break-all;
+    overflow-wrap: break-word;
 }
 .planning-picker-link-wrap {
     display: flex;
