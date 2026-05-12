@@ -1177,10 +1177,6 @@ function normalizeHref(url) {
     }
 }
 
-function buildPlanHtml(planText) {
-    return escapeHtml(planText || '').replace(/\n/g, '<br>');
-}
-
 function buildResourceSectionHtml(title, links) {
     if (!links.length) return '';
     const items = links.map((item) => {
