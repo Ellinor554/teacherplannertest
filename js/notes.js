@@ -23,7 +23,7 @@ function linkifyPrivateNotes(text) {
     for (const match of text.matchAll(PRIVATE_NOTE_URL_RE)) {
         const rawUrl = match[0];
         const index = match.index ?? 0;
-        const coreUrl = rawUrl.replace(/[),.!?;:]+$/, '');
+        const coreUrl = rawUrl.replace(/[)\]}>.,!?;:'"]+$/, '');
         const trailing = rawUrl.slice(coreUrl.length);
         html += renderPlainSegment(text.slice(cursor, index));
         const href = /^https?:\/\//i.test(coreUrl) ? coreUrl : `https://${coreUrl}`;
