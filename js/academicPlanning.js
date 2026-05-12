@@ -23,23 +23,15 @@ let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
 let curriculumEditEscapeHandler = null;
 
-const SUBJECT_SECTION_TITLES = {
-    matte: ['Taluppfattning och algebra', 'Geometri', 'Sannolikhet och statistik'],
-    svenska: ['Läsa och analysera', 'Skriva och skapa texter', 'Tala, lyssna och samtala'],
-    engelska: ['Reception', 'Produktion och interaktion', 'Strategier och kultur'],
-    biologi: ['Natur och samhälle', 'Kropp och hälsa', 'Fältstudier och undersökningar'],
-    kemi: ['Kemin i naturen', 'Systematiska undersökningar', 'Materia och kemiska reaktioner'],
-    fysik: ['Fysiken i naturen', 'Kraft, rörelse och energi', 'Systematiska undersökningar'],
-    teknik: ['Tekniska lösningar', 'Arbetssätt för utveckling', 'Teknik, människa och samhälle'],
-};
+const SUBJECT_SECTION_TITLES = ['Rubrik', 'Rubrik', 'Rubrik'];
 const DEFAULT_SECTION_KEY = 'section-1';
 
-function getDefaultSectionKey() {
-    return getMasterSectionDefinitions(selectedSubjectKey)[0]?.key || DEFAULT_SECTION_KEY;
+function getDefaultSectionKey(subjectKey = selectedSubjectKey) {
+    return getMasterSectionDefinitions(subjectKey)[0]?.key || DEFAULT_SECTION_KEY;
 }
 
 function getMasterSectionDefinitions(subjectKey) {
-    const titles = SUBJECT_SECTION_TITLES[subjectKey] || ['Del 1', 'Del 2', 'Del 3'];
+    const titles = SUBJECT_SECTION_TITLES;
     return titles.slice(0, 3).map((title, index) => ({
         key: `section-${index + 1}`,
         title,
@@ -49,7 +41,7 @@ function getMasterSectionDefinitions(subjectKey) {
 function createDefaultMasterSections(subjectKey) {
     const definitions = getMasterSectionDefinitions(subjectKey);
     if (!definitions.length) {
-        return [{ key: DEFAULT_SECTION_KEY, title: 'Del 1', items: [] }];
+        return [{ key: DEFAULT_SECTION_KEY, title: 'Rubrik', items: [] }];
     }
     return definitions.map((def) => ({ key: def.key, title: def.title, items: [] }));
 }
@@ -89,11 +81,11 @@ function getSectionByKey(subject, sectionKey) {
     return subject.masterSections.find((section) => section.key === sectionKey) || null;
 }
 
-function upsertMasterListItem(subject, text, done = false, preferredSectionKey = getDefaultSectionKey()) {
+function upsertMasterListItem(subject, text, done = false, preferredSectionKey = getDefaultSectionKey(), subjectKey = selectedSubjectKey) {
     const normalizedText = normalizeCoreContentText(text);
     if (!normalizedText) return null;
 
-    if (!Array.isArray(subject.masterSections) || !subject.masterSections.length) subject.masterSections = createDefaultMasterSections();
+    if (!Array.isArray(subject.masterSections) || !subject.masterSections.length) subject.masterSections = createDefaultMasterSections(subjectKey);
     const existing = getAllMasterItems(subject).find((item) => normalizeCoreContentText(item.text).toLowerCase() === normalizedText.toLowerCase());
     if (existing) {
         existing.done = Boolean(existing.done || done);
@@ -181,7 +173,7 @@ function ensureSubjectDefaults(subject, subjectKey) {
         (area.coreContent || []).forEach((entry) => {
             const text = normalizeCoreContentText(typeof entry === 'string' ? entry : entry?.text);
             if (!text) return;
-            const masterItem = upsertMasterListItem(subject, text, Boolean(entry?.done));
+            const masterItem = upsertMasterListItem(subject, text, Boolean(entry?.done), getDefaultSectionKey(subjectKey), subjectKey);
             if (masterItem) area.coreContentIds.push(masterItem.id);
         });
 
@@ -450,7 +442,7 @@ function saveCurriculumEditor(subjectKey, drafts) {
         });
         return {
             key: draft.key,
-            title: draft.title.trim() || `Del ${index + 1}`,
+            title: draft.title.trim() || `Rubrik ${index + 1}`,
             items,
         };
     });
@@ -502,7 +494,7 @@ function openCurriculumEditor() {
 
     const titleWrap = document.createElement('div');
     const title = document.createElement('h3');
-    title.className = 'curriculum-map-edit-title serif-title';
+    title.className = 'curriculum-map-edit-title';
     title.textContent = `Redigera Kursplan – ${SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey)?.label || ''}`;
     const subtitle = document.createElement('p');
     subtitle.className = 'curriculum-map-edit-subtitle';
@@ -556,7 +548,7 @@ function openCurriculumEditor() {
     saveBtn.addEventListener('click', () => {
         const drafts = inputs.map((entry, index) => ({
             key: entry.key,
-            title: entry.headingInput.value.trim() || `Del ${index + 1}`,
+            title: entry.headingInput.value.trim() || `Rubrik ${index + 1}`,
             rawText: entry.textarea.value,
         }));
         saveCurriculumEditor(selectedSubjectKey, drafts);
@@ -606,7 +598,7 @@ function renderCurriculumMap() {
     subjectBadge.textContent = subjectDef.label;
 
     const mapTitle = document.createElement('h2');
-    mapTitle.className = 'curriculum-map-title serif-title';
+    mapTitle.className = 'curriculum-map-title';
     mapTitle.textContent = isSelectMode ? 'Anslut innehåll' : 'Helhetsöversikt';
 
     titleArea.appendChild(subjectBadge);
@@ -650,8 +642,7 @@ function renderCurriculumMap() {
         legend.className = 'curriculum-map-legend';
         [
             { cls: 'done', label: 'Genomfört' },
-            { cls: 'covered', label: 'Kopplat till område' },
-            { cls: 'unused', label: 'Inte kopplat ännu' },
+            { cls: 'incomplete', label: 'Ej genomfört' },
         ].forEach(({ cls, label }) => {
             const item = document.createElement('span');
             item.className = `curriculum-map-legend-item ${cls}`;
@@ -662,16 +653,6 @@ function renderCurriculumMap() {
         });
         overlay.appendChild(legend);
     }
-
-    // Build area-name lookup (itemId → [area titles])
-    const areasByItemId = {};
-    subject.areas.forEach((area) => {
-        ensureAreaDefaults(area);
-        (area.coreContentIds || []).forEach((id) => {
-            if (!areasByItemId[id]) areasByItemId[id] = [];
-            areasByItemId[id].push(area.title || 'Namnlöst område');
-        });
-    });
 
     const currentArea = isSelectMode && selectedAreaId ? getAreaById(selectedSubjectKey, selectedAreaId) : null;
     const currentAreaIds = currentArea ? (currentArea.coreContentIds || []) : [];
@@ -688,7 +669,7 @@ function renderCurriculumMap() {
             sectionHeader.className = 'curriculum-map-section-header';
 
             const sectionTitle = document.createElement('h3');
-            sectionTitle.className = 'curriculum-map-section-title serif-title';
+            sectionTitle.className = 'curriculum-map-section-title';
             sectionTitle.textContent = section.title;
             sectionHeader.appendChild(sectionTitle);
 
@@ -699,15 +680,13 @@ function renderCurriculumMap() {
             grid.setAttribute('role', 'list');
 
             (section.items || []).forEach((item) => {
-                const areaNames = areasByItemId[item.id] || [];
-                const isCovered = areaNames.length > 0;
                 const isDone = item.done;
                 const isSelectedForArea = isSelectMode && currentAreaIds.includes(item.id);
 
-                const card = document.createElement(isSelectMode ? 'button' : 'div');
+                const card = document.createElement('button');
+                card.type = 'button';
                 card.className = 'curriculum-map-card';
                 if (!isSelectMode) {
-                    card.classList.add('readonly');
                     card.setAttribute('role', 'listitem');
                 }
                 card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
@@ -717,8 +696,6 @@ function renderCurriculumMap() {
                     if (isSelectedForArea) card.classList.add('selected');
                 } else {
                     if (isDone) card.classList.add('done');
-                    else if (isCovered) card.classList.add('covered');
-                    else card.classList.add('unused');
                 }
 
                 const text = document.createElement('span');
@@ -746,6 +723,8 @@ function renderCurriculumMap() {
                         saveAcademicData();
                         renderCurriculumMap();
                     });
+                } else {
+                    card.addEventListener('click', () => toggleCoreContentDone(selectedSubjectKey, item.id));
                 }
 
                 grid.appendChild(card);
