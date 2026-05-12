@@ -39,7 +39,9 @@ function normalizeHexColor(value) {
     const trimmed = String(value || '').trim();
     if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toUpperCase();
     if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
-        const [, r, g, b] = trimmed;
+        const r = trimmed[1];
+        const g = trimmed[2];
+        const b = trimmed[3];
         return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
     }
     return null;
@@ -362,7 +364,7 @@ function ensureSubjectManagerModal() {
         <div class="subject-manager-header">
             <div>
                 <h3 class="font-bold text-[#a6857e] uppercase text-xs tracking-widest">Hantera Ämnen</h3>
-                <p class="subject-manager-subtitle">Anpassa färger och dölja ämnen utan att röra befintliga lektioner.</p>
+                <p class="subject-manager-subtitle">Anpassa färger och dölj ämnen utan att röra befintliga lektioner.</p>
             </div>
             <button type="button" class="text-gray-400 hover:text-black font-bold text-xl leading-none" aria-label="Stäng ämneshanteraren">×</button>
         </div>
