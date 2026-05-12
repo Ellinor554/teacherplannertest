@@ -847,7 +847,12 @@ function buildAreaPanel(container) {
         titleDisplay.addEventListener('paste', (e) => {
             e.preventDefault();
             const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-            document.execCommand('insertText', false, text);
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            selection.deleteFromDocument();
+            const range = selection.getRangeAt(0);
+            range.insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
         });
 
         // Week badge — styled inputs for start/end week
