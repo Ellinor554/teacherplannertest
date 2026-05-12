@@ -1211,9 +1211,6 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     margin-top: auto;
     border-top: 1px solid rgba(255,255,255,0.3);
 }
-.sidebar-btn-arkivera {
-    border-top: 1px solid rgba(255,255,255,0.18);
-}
 
 /* ── Archive / "Arkivera Läsår" header button ─────────────────────────────── */
 .arkivera-header-btn {
