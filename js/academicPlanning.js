@@ -1177,14 +1177,6 @@ function normalizeHref(url) {
     }
 }
 
-function appendHtml(existingHtml, chunkHtml) {
-    const current = String(existingHtml || '').trim();
-    const addition = String(chunkHtml || '').trim();
-    if (!addition) return current;
-    if (!current) return addition;
-    return `${current}<div><br></div>${addition}`;
-}
-
 function buildPlanHtml(planText) {
     return escapeHtml(planText || '').replace(/\n/g, '<br>');
 }
@@ -1199,6 +1191,15 @@ function buildResourceSectionHtml(title, links) {
     }).filter(Boolean).join('');
     if (!items) return '';
     return `<p><strong>${escapeHtml(title)}</strong></p><ul>${items}</ul>`;
+}
+
+function appendChunkToEditable(element, chunkHtml) {
+    if (!element) return false;
+    const chunk = String(chunkHtml || '').trim();
+    if (!chunk) return false;
+    if (element.innerHTML.trim()) element.insertAdjacentHTML('beforeend', '<div><br></div>');
+    element.insertAdjacentHTML('beforeend', chunk);
+    return true;
 }
 
 export function closePlanningPresentationPicker() {
@@ -1236,10 +1237,12 @@ export function openPlanningPresentationPicker() {
 
     subjectText.textContent = `${subject ? subject.label : lesson.subject} • ${activeArea.title || 'Område'} • v. ${sanitizeWeek(activeArea.startWeek, 1)}-${sanitizeWeek(activeArea.endWeek, sanitizeWeek(activeArea.startWeek, 1))}`;
     list.textContent = '';
+    const presentationCount = activeArea.presentations.filter((item) => item.url).length;
+    const videoCount = activeArea.videos.filter((item) => item.url).length;
     const options = [
         { key: 'plan', label: 'Planeringstext', meta: 'Hämtar planeringstext från aktivt område' },
-        { key: 'presentations', label: 'Presentationer', meta: `Hämtar ${activeArea.presentations.filter((item) => item.url).length} länk(ar)` },
-        { key: 'videos', label: 'Filmer', meta: `Hämtar ${activeArea.videos.filter((item) => item.url).length} länk(ar)` },
+        { key: 'presentations', label: 'Presentationer', meta: `Hämtar ${presentationCount} länk(ar)` },
+        { key: 'videos', label: 'Filmer', meta: `Hämtar ${videoCount} länk(ar)` },
     ];
     options.forEach((option) => {
         const row = document.createElement('label');
@@ -1291,9 +1294,14 @@ export function applyPlanningSelection() {
         .map((input) => input.dataset.fetchOption);
     if (!selected.length) return;
 
+    const left = document.getElementById('sb-plan');
+    const right = document.getElementById('sb-plan-right');
     if (selected.includes('plan')) {
         const planHtml = buildPlanHtml(activeArea.plan);
-        if (planHtml) lesson.plan = appendHtml(lesson.plan, planHtml);
+        if (planHtml) {
+            if (appendChunkToEditable(left, planHtml)) lesson.plan = left.innerHTML;
+            else lesson.plan = `${lesson.plan || ''}${lesson.plan ? '<div><br></div>' : ''}${planHtml}`;
+        }
     }
 
     const resourceSections = [];
@@ -1305,15 +1313,12 @@ export function applyPlanningSelection() {
     }
     const resourceHtml = resourceSections.filter(Boolean).join('<div><br></div>');
     if (resourceHtml) {
-        lesson.planRight = appendHtml(lesson.planRight, resourceHtml);
+        if (appendChunkToEditable(right, resourceHtml)) lesson.planRight = right.innerHTML;
+        else lesson.planRight = `${lesson.planRight || ''}${lesson.planRight ? '<div><br></div>' : ''}${resourceHtml}`;
         lesson.split = true;
         setIsSplitActive(true);
     }
 
-    const left = document.getElementById('sb-plan');
-    const right = document.getElementById('sb-plan-right');
-    if (left) left.innerHTML = lesson.plan || '';
-    if (right) right.innerHTML = lesson.planRight || '';
     if (resourceHtml) {
         document.getElementById('sb-plan-divider')?.classList.remove('hidden');
         right?.classList.remove('hidden');
