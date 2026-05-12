@@ -136,8 +136,11 @@ function ensureSubjectDefaults(subject, subjectKey) {
     const baselineSections = getMasterSectionDefinitions(subjectKey);
 
     const normalizedSections = baselineSections.map((def) => {
+        // Fallback by section order only for legacy data where keys differ from current section-N keys.
+        const sectionKeyMatch = /^section-(\d+)$/.exec(def.key);
+        const fallbackIndex = sectionKeyMatch ? Number.parseInt(sectionKeyMatch[1], 10) - 1 : -1;
         const existingSection = existingSections.find((entry) => entry?.key === def.key)
-            || existingSections[Number.parseInt(def.key.split('-')[1], 10) - 1]
+            || (fallbackIndex >= 0 ? existingSections[fallbackIndex] : null)
             || null;
         const items = [];
         (Array.isArray(existingSection?.items) ? existingSection.items : []).forEach((entry) => {
@@ -698,7 +701,6 @@ function renderCurriculumMap() {
                 const isSelectedForArea = isSelectMode && currentAreaIds.includes(item.id);
 
                 const card = document.createElement(isSelectMode ? 'button' : 'div');
-                if (isSelectMode) card.type = 'button';
                 card.className = 'curriculum-map-card';
                 if (!isSelectMode) card.classList.add('readonly');
                 card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
