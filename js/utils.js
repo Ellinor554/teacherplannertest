@@ -1,4 +1,4 @@
-import { SUBJECT_COLORS } from './config.js';
+import { getSubjectColorForName } from './subjects.js';
 
 export function getWeekNumber(d) {
     d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -8,12 +8,7 @@ export function getWeekNumber(d) {
 }
 
 export function getSubjectColor(subject) {
-    if (!subject) return null;
-    const key = subject.toLowerCase().trim();
-    for (const [name, colors] of Object.entries(SUBJECT_COLORS)) {
-        if (key.startsWith(name)) return colors;
-    }
-    return null;
+    return getSubjectColorForName(subject);
 }
 
 export function getMonday(y, w) {
