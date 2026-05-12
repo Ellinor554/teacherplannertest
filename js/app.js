@@ -147,7 +147,7 @@ window.addSubjectFromUI = function () {
 };
 
 window.deleteSubjectFromUI = function (key) {
-    if (!confirm('Är du säker? All planering kopplad till detta ämne raderas.')) return;
+    if (!confirm('Är du säker? All planering kopplad till detta ämne raderas. Denna åtgärd kan inte ångras.')) return;
     deleteSubject(key);
     deleteAcademicSubjectData(key);
     renderSubjectManagerList();

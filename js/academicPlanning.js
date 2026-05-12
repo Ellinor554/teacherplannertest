@@ -229,7 +229,10 @@ function getSortedAreas(subjectKey) {
 }
 
 function ensureSelection() {
-    if (!selectedSubjectKey) { selectedAreaId = null; return; }
+    if (!selectedSubjectKey) {
+        selectedAreaId = null;
+        return;
+    }
     const subject = getSubject(selectedSubjectKey);
     if (!subject.areas.length) {
         selectedAreaId = null;
@@ -550,8 +553,9 @@ function openCurriculumEditor() {
 }
 
 function renderCurriculumMap() {
+    const DEFAULT_SUBJECT_DEF = { key: '', label: '', icon: '', color: { bg: '#a6857e', light: '#f5efe9', text: '#5c3d35' } };
     const subjectDefs = getSubjectDefs();
-    const subjectDef = subjectDefs.find((s) => s.key === selectedSubjectKey) || subjectDefs[0] || { key: '', label: '', icon: '', color: { bg: '#a6857e', light: '#f5efe9', text: '#5c3d35' } };
+    const subjectDef = subjectDefs.find((s) => s.key === selectedSubjectKey) || subjectDefs[0] || DEFAULT_SUBJECT_DEF;
     const subject = getSubject(selectedSubjectKey);
     const isSelectMode = curriculumMapMode === 'select';
 

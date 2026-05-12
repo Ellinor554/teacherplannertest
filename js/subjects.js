@@ -95,7 +95,7 @@ export function addSubject({ name, icon, color }) {
         .toLowerCase()
         .replace(/\s+/g, '_')
         .replace(/[^a-z0-9_åäö]/g, '')
-        || 'amne_' + Date.now();
+        || 'subject_' + Date.now();
     // Reject duplicates
     if (_subjects.find((s) => s.key === key || s.name.toLowerCase() === trimmedName.toLowerCase())) {
         return null;
