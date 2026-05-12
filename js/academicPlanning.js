@@ -1,6 +1,6 @@
 import { SUBJECT_COLORS } from './config.js';
 import {
-    plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId, setIsSplitActive
+    plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId
 } from './state.js';
 import { saveData } from './persistence.js';
 
@@ -22,7 +22,6 @@ let selectedAreaId = null;
 let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
 let curriculumEditEscapeHandler = null;
-let planningPickerContext = null;
 
 const SUBJECT_SECTION_TITLES = Array(3).fill('Rubrik');
 const DEFAULT_SECTION_KEY = 'section-1';
@@ -1177,18 +1176,6 @@ function normalizeHref(url) {
     }
 }
 
-function buildResourceSectionHtml(title, links) {
-    if (!links.length) return '';
-    const items = links.map((item) => {
-        const href = normalizeHref(item.url);
-        if (!href) return '';
-        const label = escapeHtml(item.title || href);
-        return `<li><a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a></li>`;
-    }).filter(Boolean).join('');
-    if (!items) return '';
-    return `<p><strong>${escapeHtml(title)}</strong></p><ul>${items}</ul>`;
-}
-
 function getAreaResourceLinks(items) {
     return (Array.isArray(items) ? items : []).map((item) => {
         const href = normalizeHref(item?.url);
@@ -1200,7 +1187,7 @@ function getAreaResourceLinks(items) {
     }).filter(Boolean);
 }
 
-function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
+function buildPlanningPickerResourceSection({ sectionTitle, links }) {
     const section = document.createElement('section');
     section.className = 'planning-picker-section';
 
@@ -1218,18 +1205,8 @@ function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
     }
 
     links.forEach((resource) => {
-        const row = document.createElement('label');
-        row.className = 'planning-picker-item planning-picker-item-select';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'planning-picker-checkbox';
-        checkbox.dataset.fetchKind = kind;
-        checkbox.dataset.fetchUrl = resource.url;
-        checkbox.dataset.fetchTitle = resource.title;
-
-        const textWrap = document.createElement('div');
-        textWrap.className = 'planning-picker-link-wrap';
+        const row = document.createElement('div');
+        row.className = 'planning-picker-item';
 
         const link = document.createElement('a');
         link.className = 'planning-picker-link';
@@ -1237,35 +1214,17 @@ function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.textContent = resource.title;
-        link.addEventListener('click', (event) => event.stopPropagation());
 
-        const meta = document.createElement('span');
-        meta.className = 'planning-picker-meta';
-        meta.textContent = resource.url;
-
-        textWrap.appendChild(link);
-        textWrap.appendChild(meta);
-        row.appendChild(checkbox);
-        row.appendChild(textWrap);
+        row.appendChild(link);
         section.appendChild(row);
     });
 
     return section;
 }
 
-function appendChunkToEditable(element, chunkHtml) {
-    if (!element) return false;
-    const chunk = String(chunkHtml || '').trim();
-    if (!chunk) return false;
-    if (element.innerHTML.trim()) element.insertAdjacentHTML('beforeend', '<div><br></div>');
-    element.insertAdjacentHTML('beforeend', chunk);
-    return true;
-}
-
 export function closePlanningPresentationPicker() {
     const modal = document.getElementById('planning-presentation-modal');
     if (modal) modal.classList.add('hidden');
-    planningPickerContext = null;
 }
 
 export function openPlanningPresentationPicker() {
@@ -1302,64 +1261,14 @@ export function openPlanningPresentationPicker() {
 
     list.appendChild(buildPlanningPickerResourceSection({
         sectionTitle: 'Presentationer',
-        kind: 'presentations',
         links: presentations,
     }));
     list.appendChild(buildPlanningPickerResourceSection({
         sectionTitle: 'Filmer',
-        kind: 'videos',
         links: videos,
     }));
-    planningPickerContext = { subjectKey, areaId: activeArea.id };
 
     modal.classList.remove('hidden');
-}
-
-export function applyPlanningSelection() {
-    const modal = document.getElementById('planning-presentation-modal');
-    const list = document.getElementById('planning-presentation-modal-list');
-    if (!modal || !list || !planningPickerContext) return;
-
-    const lesson = getActiveLesson();
-    if (!lesson) return;
-
-    academicData = loadAcademicData();
-    const activeArea = getAreaById(planningPickerContext.subjectKey, planningPickerContext.areaId);
-    if (!activeArea) {
-        alert('Inget aktivt område hittades för denna vecka.');
-        closePlanningPresentationPicker();
-        return;
-    }
-    ensureAreaDefaults(activeArea);
-
-    const selectedResources = [...list.querySelectorAll('input[data-fetch-url]:checked')]
-        .map((input) => ({
-            kind: input.dataset.fetchKind,
-            title: input.dataset.fetchTitle,
-            url: input.dataset.fetchUrl,
-        }))
-        .filter((item) => item.kind && item.url);
-    if (!selectedResources.length) return;
-
-    const right = document.getElementById('sb-plan-right');
-
-    const resourceSections = [];
-    const selectedPresentations = selectedResources.filter((item) => item.kind === 'presentations');
-    const selectedVideos = selectedResources.filter((item) => item.kind === 'videos');
-    if (selectedPresentations.length) resourceSections.push(buildResourceSectionHtml('Presentationer', selectedPresentations));
-    if (selectedVideos.length) resourceSections.push(buildResourceSectionHtml('Filmer', selectedVideos));
-    const resourceHtml = resourceSections.filter(Boolean).join('<div><br></div>');
-    if (resourceHtml) {
-        if (appendChunkToEditable(right, resourceHtml)) lesson.planRight = right.innerHTML;
-        else lesson.planRight = `${lesson.planRight || ''}${lesson.planRight ? '<div><br></div>' : ''}${resourceHtml}`;
-        lesson.split = true;
-        setIsSplitActive(true);
-        document.getElementById('sb-plan-divider')?.classList.remove('hidden');
-        right?.classList.remove('hidden');
-        document.getElementById('split-btn')?.classList.add('active');
-    }
-    saveData();
-    closePlanningPresentationPicker();
 }
 
 export function initAcademicPlanning() {

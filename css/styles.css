@@ -1240,61 +1240,17 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
-}
-.planning-picker-item-select {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 10px;
-    cursor: pointer;
-}
-.planning-picker-checkbox {
-    width: 14px;
-    height: 14px;
-    margin-top: 2px;
-    accent-color: #a6857e;
-    flex-shrink: 0;
-}
-.planning-picker-meta {
-    font-size: 11px;
-    color: #a89c92;
-    overflow-wrap: break-word;
-}
-.planning-picker-link-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+    gap: 0;
 }
 .planning-picker-link {
     font-weight: 700;
     color: #7f655b;
     text-decoration: none;
+    transition: color 0.15s ease;
 }
 .planning-picker-link:hover {
     color: #a6857e;
     text-decoration: underline;
-}
-.planning-picker-actions {
-    margin-top: 12px;
-    display: flex;
-    justify-content: flex-end;
-}
-.planning-picker-apply-btn {
-    border: 1px solid #e4ddd3;
-    background: #fff;
-    color: #8d766a;
-    border-radius: 10px;
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-    transition: all 0.15s;
-}
-.planning-picker-apply-btn:hover {
-    border-color: #a6857e;
-    color: #a6857e;
 }
 
 /* ── Archive Sidebar Button ───────────────────────────────────────────────── */
