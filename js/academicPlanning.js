@@ -1,4 +1,4 @@
-import { SUBJECT_COLORS } from './config.js';
+import { getSubjectDefs, normalizeSubjectToKey, hexToColors } from './subjects.js';
 import {
     plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId
 } from './state.js';
@@ -6,18 +6,8 @@ import { saveData } from './persistence.js';
 
 const ACADEMIC_STORAGE_KEY = 'teacherplanner_academic_year_planning';
 
-const SUBJECT_DEFINITIONS = [
-    { key: 'matte', label: 'Matte', icon: 'M', aliases: ['matte', 'matematik'], color: SUBJECT_COLORS.matte },
-    { key: 'svenska', label: 'Svenska', icon: 'Sv', aliases: ['svenska'], color: SUBJECT_COLORS.svenska },
-    { key: 'engelska', label: 'Engelska', icon: 'En', aliases: ['engelska'], color: SUBJECT_COLORS.engelska },
-    { key: 'biologi', label: 'Biologi', icon: 'Bi', aliases: ['biologi'], color: SUBJECT_COLORS.biologi },
-    { key: 'kemi', label: 'Kemi', icon: 'Ke', aliases: ['kemi'], color: SUBJECT_COLORS.kemi },
-    { key: 'fysik', label: 'Fysik', icon: 'Fy', aliases: ['fysik'], color: SUBJECT_COLORS.fysik },
-    { key: 'teknik', label: 'Teknik', icon: 'Te', aliases: ['teknik'], color: SUBJECT_COLORS.teknik },
-];
-
 let academicData = loadAcademicData();
-let selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
+let selectedSubjectKey = null;
 let selectedAreaId = null;
 let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
@@ -203,16 +193,12 @@ function loadAcademicData() {
     try {
         const parsed = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY) || '{}');
         const subjects = parsed?.subjects && typeof parsed.subjects === 'object' ? parsed.subjects : {};
-        SUBJECT_DEFINITIONS.forEach((subject) => {
+        getSubjectDefs().forEach((subject) => {
             subjects[subject.key] = ensureSubjectDefaults(subjects[subject.key] || { areas: [], masterSections: [] }, subject.key);
         });
         return { subjects };
     } catch {
-        const subjects = {};
-        SUBJECT_DEFINITIONS.forEach((subject) => {
-            subjects[subject.key] = { areas: [], masterSections: [] };
-        });
-        return { subjects };
+        return { subjects: {} };
     }
 }
 
@@ -242,14 +228,8 @@ function getSortedAreas(subjectKey) {
     });
 }
 
-function normalizeSubjectToKey(subjectName) {
-    const value = String(subjectName || '').trim().toLowerCase();
-    if (!value) return null;
-    const direct = SUBJECT_DEFINITIONS.find((subject) => subject.aliases.some(alias => value.startsWith(alias)));
-    return direct ? direct.key : null;
-}
-
 function ensureSelection() {
+    if (!selectedSubjectKey) { selectedAreaId = null; return; }
     const subject = getSubject(selectedSubjectKey);
     if (!subject.areas.length) {
         selectedAreaId = null;
@@ -495,7 +475,7 @@ function openCurriculumEditor() {
     const titleWrap = document.createElement('div');
     const title = document.createElement('h3');
     title.className = 'curriculum-map-edit-title';
-    title.textContent = `Redigera Kursplan – ${SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey)?.label || ''}`;
+    title.textContent = `Redigera Kursplan – ${getSubjectDefs().find((s) => s.key === selectedSubjectKey)?.label || ''}`;
     const subtitle = document.createElement('p');
     subtitle.className = 'curriculum-map-edit-subtitle';
     subtitle.textContent = 'Ange rubriker och punkter (en punkt per rad).';
@@ -570,7 +550,8 @@ function openCurriculumEditor() {
 }
 
 function renderCurriculumMap() {
-    const subjectDef = SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
+    const subjectDefs = getSubjectDefs();
+    const subjectDef = subjectDefs.find((s) => s.key === selectedSubjectKey) || subjectDefs[0] || { key: '', label: '', icon: '', color: { bg: '#a6857e', light: '#f5efe9', text: '#5c3d35' } };
     const subject = getSubject(selectedSubjectKey);
     const isSelectMode = curriculumMapMode === 'select';
 
@@ -755,7 +736,18 @@ function buildSubjectSidebar(container) {
     const sidebar = document.createElement('div');
     sidebar.className = 'academic-subject-sidebar custom-scrollbar';
 
-    SUBJECT_DEFINITIONS.forEach((subject) => {
+    const subjectDefs = getSubjectDefs();
+
+    if (!subjectDefs.length) {
+        const empty = document.createElement('p');
+        empty.className = 'academic-subject-empty';
+        empty.textContent = 'Inga ämnen. Klicka ⚙ i sidopanelen.';
+        sidebar.appendChild(empty);
+        container.appendChild(sidebar);
+        return;
+    }
+
+    subjectDefs.forEach((subject) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'academic-subject-btn';
@@ -765,6 +757,7 @@ function buildSubjectSidebar(container) {
         const icon = document.createElement('span');
         icon.className = 'academic-subject-icon';
         icon.textContent = subject.icon;
+        icon.style.background = subject.color?.bg || '#a6857e';
 
         const label = document.createElement('span');
         label.className = 'academic-subject-label';
@@ -815,7 +808,7 @@ function buildAreaPanel(container) {
     const areas = getSortedAreas(selectedSubjectKey);
     areas.forEach((area) => {
         ensureAreaDefaults(area);
-        const subjectDef = SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey);
+        const subjectDef = getSubjectDefs().find((s) => s.key === selectedSubjectKey);
         const subjectColor = subjectDef?.color?.bg || '#a6857e';
 
         const item = document.createElement('div');
@@ -1118,15 +1111,24 @@ export function renderAcademicPlanningView() {
     if (!container) return;
 
     academicData = loadAcademicData();
-    if (!SUBJECT_DEFINITIONS.some((subject) => subject.key === selectedSubjectKey)) {
-        selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
+    const subjectDefs = getSubjectDefs();
+    if (!subjectDefs.some((s) => s.key === selectedSubjectKey)) {
+        selectedSubjectKey = subjectDefs[0]?.key || null;
     }
     ensureSelection();
 
-    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
-    updateAcademicPlanningTitle(subject.label);
+    const subject = subjectDefs.find((entry) => entry.key === selectedSubjectKey) || null;
+    updateAcademicPlanningTitle(subject?.label || '');
 
     container.textContent = '';
+
+    if (!subjectDefs.length) {
+        const empty = document.createElement('div');
+        empty.className = 'academic-no-subjects';
+        empty.innerHTML = '<p>Inga ämnen tillagda.</p><p>Klicka på <strong>⚙</strong> i vänstra sidopanelen för att lägga till ämnen.</p>';
+        container.appendChild(empty);
+        return;
+    }
 
     const layout = document.createElement('div');
     layout.className = 'academic-layout';
@@ -1248,7 +1250,7 @@ export function openPlanningPresentationPicker() {
     }
     ensureAreaDefaults(activeArea);
 
-    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === subjectKey);
+    const subject = getSubjectDefs().find((entry) => entry.key === subjectKey);
     const modal = document.getElementById('planning-presentation-modal');
     const subjectText = document.getElementById('planning-presentation-modal-subject');
     const list = document.getElementById('planning-presentation-modal-list');
@@ -1275,6 +1277,23 @@ export function initAcademicPlanning() {
     academicData = loadAcademicData();
 }
 
+/** Set the active subject in the academic planning view and re-render. */
+export function selectAcademicSubject(key) {
+    selectedSubjectKey = key;
+    selectedAreaId = null;
+}
+
+/** Remove all academic planning data for a subject (called when a subject is deleted). */
+export function deleteAcademicSubjectData(key) {
+    academicData = loadAcademicData();
+    delete academicData.subjects[key];
+    saveAcademicData();
+    if (selectedSubjectKey === key) {
+        selectedSubjectKey = getSubjectDefs()[0]?.key || null;
+        selectedAreaId = null;
+    }
+}
+
 // ── Academic Year Archive ──────────────────────────────────────────────────
 
 const ARCHIVE_STORAGE_KEY = 'teacherplanner_academic_archive';
@@ -1298,8 +1317,10 @@ export function archiveCurrentYear() {
     if (label === null) return; // cancelled
     const yearLabel = label.trim() || `${new Date().getFullYear()}/${new Date().getFullYear() + 1}`;
 
+    const subjectDefs = getSubjectDefs();
+
     // Check if any subject has areas to archive
-    const hasAreas = SUBJECT_DEFINITIONS.some((def) => getSubject(def.key).areas.length > 0);
+    const hasAreas = subjectDefs.some((def) => getSubject(def.key).areas.length > 0);
     if (!hasAreas) {
         if (!confirm('Inga aktiva områden finns att arkivera. Vill du ändå skapa ett tomt arkiv och nollställa Kursplan-markeringar?')) return;
     }
@@ -1312,11 +1333,13 @@ export function archiveCurrentYear() {
         subjects: {},
     };
 
-    SUBJECT_DEFINITIONS.forEach((subjectDef) => {
+    subjectDefs.forEach((subjectDef) => {
         const subject = getSubject(subjectDef.key);
         const areas = getSortedAreas(subjectDef.key);
 
         snapshot.subjects[subjectDef.key] = {
+            // Store subject metadata so archived data remains readable even if subject is deleted
+            _meta: { name: subjectDef.label, icon: subjectDef.icon, color: subjectDef.color?.bg || '#a6857e' },
             areas: areas.map((area) => {
                 ensureAreaDefaults(area);
                 const coreContentTexts = getAreaCoreContentItems(subjectDef.key, area).map((item) => item.text);
@@ -1376,10 +1399,24 @@ function renderArchiveYearDetail(container, yearSnapshot) {
         return;
     }
 
-    SUBJECT_DEFINITIONS.forEach((subjectDef) => {
-        const subjectArchive = yearSnapshot.subjects[subjectDef.key];
+    // Build a list of subject entries to display from the snapshot itself.
+    // For each key in the snapshot, use stored _meta (name/icon/color) if available,
+    // otherwise fall back to the current dynamic subject list.
+    const snapshotKeys = Object.keys(yearSnapshot.subjects || {});
+    let hasAny = false;
+    snapshotKeys.forEach((key) => {
+        const subjectArchive = yearSnapshot.subjects[key];
         const areas = subjectArchive?.areas || [];
         if (!areas.length) return;
+        hasAny = true;
+
+        // Resolve display info: prefer stored _meta, else current dynamic subject, else generic
+        const meta = subjectArchive._meta;
+        const currentDef = getSubjectDefs().find((s) => s.key === key);
+        const subjectLabel = meta?.name || currentDef?.label || key;
+        const subjectIcon  = meta?.icon  || currentDef?.icon  || key.slice(0, 2).toUpperCase();
+        const subjectColor = meta?.color || currentDef?.color?.bg || '#a6857e';
+        const subjectColors = hexToColors(subjectColor);
 
         const section = document.createElement('div');
         section.className = 'archive-subject-section';
@@ -1389,11 +1426,11 @@ function renderArchiveYearDetail(container, yearSnapshot) {
 
         const badge = document.createElement('span');
         badge.className = 'archive-subject-badge';
-        badge.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
-        badge.textContent = subjectDef.icon;
+        badge.style.setProperty('--subject-color', subjectColor);
+        badge.textContent = subjectIcon;
 
         heading.appendChild(badge);
-        heading.appendChild(document.createTextNode(subjectDef.label));
+        heading.appendChild(document.createTextNode(subjectLabel));
         section.appendChild(heading);
 
         const cards = document.createElement('div');
@@ -1402,8 +1439,8 @@ function renderArchiveYearDetail(container, yearSnapshot) {
         areas.forEach((area) => {
             const card = document.createElement('div');
             card.className = 'archive-area-card';
-            card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
-            card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+            card.style.setProperty('--subject-color', subjectColor);
+            card.style.setProperty('--subject-light', subjectColors.light);
 
             const titleEl = document.createElement('div');
             titleEl.className = 'archive-area-card-title';
@@ -1428,8 +1465,8 @@ function renderArchiveYearDetail(container, yearSnapshot) {
                 area.coreContentTexts.slice(0, 4).forEach((text) => {
                     const chip = document.createElement('span');
                     chip.className = 'archive-area-chip';
-                    chip.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
-                    chip.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+                    chip.style.setProperty('--subject-color', subjectColor);
+                    chip.style.setProperty('--subject-light', subjectColors.light);
                     chip.textContent = text;
                     chip.title = text;
                     chips.appendChild(chip);
@@ -1437,8 +1474,8 @@ function renderArchiveYearDetail(container, yearSnapshot) {
                 if (area.coreContentTexts.length > 4) {
                     const more = document.createElement('span');
                     more.className = 'archive-area-chip';
-                    more.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
-                    more.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
+                    more.style.setProperty('--subject-color', subjectColor);
+                    more.style.setProperty('--subject-light', subjectColors.light);
                     more.textContent = `+${area.coreContentTexts.length - 4} till`;
                     chips.appendChild(more);
                 }
@@ -1449,7 +1486,7 @@ function renderArchiveYearDetail(container, yearSnapshot) {
             reuseBtn.type = 'button';
             reuseBtn.className = 'archive-reuse-btn';
             reuseBtn.textContent = 'Kopiera till aktuellt år';
-            reuseBtn.addEventListener('click', () => openReuseWeekModal(subjectDef.key, area));
+            reuseBtn.addEventListener('click', () => openReuseWeekModal(key, area));
             card.appendChild(reuseBtn);
 
             cards.appendChild(card);
@@ -1459,7 +1496,6 @@ function renderArchiveYearDetail(container, yearSnapshot) {
         container.appendChild(section);
     });
 
-    const hasAny = SUBJECT_DEFINITIONS.some((def) => (yearSnapshot.subjects[def.key]?.areas || []).length > 0);
     if (!hasAny) {
         const ph = document.createElement('p');
         ph.className = 'archive-detail-placeholder';
