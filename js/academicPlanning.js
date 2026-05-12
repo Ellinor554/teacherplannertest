@@ -1200,7 +1200,7 @@ function getAreaResourceLinks(items) {
     }).filter(Boolean);
 }
 
-function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
+function buildPlanningPickerResourceSection({ sectionTitle, links }) {
     const section = document.createElement('section');
     section.className = 'planning-picker-section';
 
@@ -1218,18 +1218,8 @@ function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
     }
 
     links.forEach((resource) => {
-        const row = document.createElement('label');
-        row.className = 'planning-picker-item planning-picker-item-select';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'planning-picker-checkbox';
-        checkbox.dataset.fetchKind = kind;
-        checkbox.dataset.fetchUrl = resource.url;
-        checkbox.dataset.fetchTitle = resource.title;
-
-        const textWrap = document.createElement('div');
-        textWrap.className = 'planning-picker-link-wrap';
+        const row = document.createElement('div');
+        row.className = 'planning-picker-item planning-picker-link-wrap';
 
         const link = document.createElement('a');
         link.className = 'planning-picker-link';
@@ -1237,16 +1227,8 @@ function buildPlanningPickerResourceSection({ sectionTitle, kind, links }) {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.textContent = resource.title;
-        link.addEventListener('click', (event) => event.stopPropagation());
 
-        const meta = document.createElement('span');
-        meta.className = 'planning-picker-meta';
-        meta.textContent = resource.url;
-
-        textWrap.appendChild(link);
-        textWrap.appendChild(meta);
-        row.appendChild(checkbox);
-        row.appendChild(textWrap);
+        row.appendChild(link);
         section.appendChild(row);
     });
 
@@ -1302,12 +1284,10 @@ export function openPlanningPresentationPicker() {
 
     list.appendChild(buildPlanningPickerResourceSection({
         sectionTitle: 'Presentationer',
-        kind: 'presentations',
         links: presentations,
     }));
     list.appendChild(buildPlanningPickerResourceSection({
         sectionTitle: 'Filmer',
-        kind: 'videos',
         links: videos,
     }));
     planningPickerContext = { subjectKey, areaId: activeArea.id };
