@@ -40,6 +40,8 @@ export function changeView(view) {
     document.getElementById('academic-planning-title').classList.toggle('hidden', !isAcademic);
     const kursplanBtn = document.getElementById('kursplan-top-btn');
     if (kursplanBtn) kursplanBtn.classList.toggle('hidden', !isAcademic);
+    const arkiveraBtn = document.getElementById('arkivera-top-btn');
+    if (arkiveraBtn) arkiveraBtn.classList.toggle('hidden', !isAcademic);
 
     if (view === 'oversikt') {
         document.getElementById('view-oversikt').classList.remove('hidden');
