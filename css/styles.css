@@ -915,10 +915,7 @@ body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444;
     gap: 10px;
     transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s, background 0.12s;
 }
-.curriculum-map-card.readonly {
-    cursor: default;
-}
-.curriculum-map-card:not(.readonly):hover {
+.curriculum-map-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
 }

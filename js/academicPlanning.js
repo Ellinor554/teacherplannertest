@@ -23,7 +23,7 @@ let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
 let curriculumEditEscapeHandler = null;
 
-const SUBJECT_SECTION_TITLES = ['Rubrik', 'Rubrik', 'Rubrik'];
+const SUBJECT_SECTION_TITLES = Array(3).fill('Rubrik');
 const DEFAULT_SECTION_KEY = 'section-1';
 
 function getDefaultSectionKey(subjectKey = selectedSubjectKey) {
@@ -686,9 +686,6 @@ function renderCurriculumMap() {
                 const card = document.createElement('button');
                 card.type = 'button';
                 card.className = 'curriculum-map-card';
-                if (!isSelectMode) {
-                    card.setAttribute('role', 'listitem');
-                }
                 card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
                 card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
 
