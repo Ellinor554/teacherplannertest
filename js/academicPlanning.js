@@ -514,6 +514,7 @@ function openCurriculumEditor() {
     closeBtn.type = 'button';
     closeBtn.className = 'curriculum-map-close';
     closeBtn.textContent = 'Avbryt';
+    closeBtn.setAttribute('aria-label', 'Avbryt redigering av kursplan');
     closeBtn.addEventListener('click', closeCurriculumEditModal);
 
     header.appendChild(titleWrap);
@@ -551,6 +552,7 @@ function openCurriculumEditor() {
     saveBtn.type = 'button';
     saveBtn.className = 'academic-add-btn';
     saveBtn.textContent = 'Spara';
+    saveBtn.setAttribute('aria-label', 'Spara ändringar i kursplan');
     saveBtn.addEventListener('click', () => {
         const drafts = inputs.map((entry, index) => ({
             key: entry.key,
@@ -625,6 +627,7 @@ function renderCurriculumMap() {
         editBtn.type = 'button';
         editBtn.className = 'curriculum-map-edit-btn';
         editBtn.textContent = 'Redigera Kursplan';
+        editBtn.setAttribute('aria-label', 'Redigera Kursplan');
         editBtn.addEventListener('click', openCurriculumEditor);
         headerActions.appendChild(editBtn);
     }
