@@ -1317,9 +1317,6 @@ export function applyPlanningSelection() {
         else lesson.planRight = `${lesson.planRight || ''}${lesson.planRight ? '<div><br></div>' : ''}${resourceHtml}`;
         lesson.split = true;
         setIsSplitActive(true);
-    }
-
-    if (resourceHtml) {
         document.getElementById('sb-plan-divider')?.classList.remove('hidden');
         right?.classList.remove('hidden');
         document.getElementById('split-btn')?.classList.add('active');
