@@ -2,6 +2,7 @@ import { DEFAULT_SUBJECTS } from './config.js';
 
 const SUBJECT_STORAGE_KEY = 'teacher_planner_subjects';
 const SUBJECT_FALLBACK_COLOR = '#a6857e';
+const SUBJECT_ICON_FALLBACK = 'Ä';
 const SUBJECT_COLOR_SEQUENCE = DEFAULT_SUBJECTS.map((subject) => subject.color?.bg).filter(Boolean);
 
 const listeners = new Set();
@@ -46,7 +47,7 @@ function normalizeHexColor(value) {
 }
 
 function hexToRgb(hex) {
-    const normalized = normalizeHexColor(hex) || '#A6857E';
+    const normalized = normalizeHexColor(hex) || SUBJECT_FALLBACK_COLOR.toUpperCase();
     return {
         r: Number.parseInt(normalized.slice(1, 3), 16),
         g: Number.parseInt(normalized.slice(3, 5), 16),
@@ -87,11 +88,11 @@ function createSubjectIcon(label) {
         .split(/\s+/)
         .filter(Boolean);
     if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase();
-    return String(label || '').trim().slice(0, 2).replace(/\s+/g, '').padEnd(1, 'Ä').toUpperCase();
+    return String(label || '').trim().slice(0, 2).replace(/\s+/g, '').padEnd(1, SUBJECT_ICON_FALLBACK).toUpperCase();
 }
 
 function sanitizeSubject(subject, index = 0) {
-    const label = String(subject?.label || subject?.name || '').trim() || `Ämne ${index + 1}`;
+    const label = String(subject?.label || '').trim() || `Ämne ${index + 1}`;
     const key = normalizeSubjectKey(subject?.key || label) || `amne-${index + 1}`;
     const aliases = new Set(
         [...(Array.isArray(subject?.aliases) ? subject.aliases : []), label, key]
@@ -360,7 +361,7 @@ function ensureSubjectManagerModal() {
         <div class="subject-manager-header">
             <div>
                 <h3 class="font-bold text-[#a6857e] uppercase text-xs tracking-widest">Hantera Ämnen</h3>
-                <p class="subject-manager-subtitle">Anpassa färger och dolda ämnen utan att röra befintliga lektioner.</p>
+                <p class="subject-manager-subtitle">Anpassa färger och dölja ämnen utan att röra befintliga lektioner.</p>
             </div>
             <button type="button" class="text-gray-400 hover:text-black font-bold text-xl leading-none" aria-label="Stäng ämneshanteraren">×</button>
         </div>

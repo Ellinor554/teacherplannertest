@@ -57,7 +57,7 @@ export const DEFAULT_SUBJECTS = [
     },
 ];
 
-// Legacy export kept for compatibility with existing imports.
+// Legacy export kept for older subject-color consumers; remove once all lookups use js/subjects.js directly.
 export const SUBJECT_COLORS = DEFAULT_SUBJECTS.reduce((map, subject) => {
     map[subject.key] = subject.color;
     return map;
