@@ -195,6 +195,7 @@
             <button onclick="closeNotesModal()" class="text-gray-400 hover:text-black font-bold text-xl leading-none">&times;</button>
         </div>
         <textarea id="private-notes-textarea" class="private-notes-area custom-scrollbar" placeholder="Skriv privata anteckningar för denna lektion... (syns bara för dig)"></textarea>
+        <div id="private-notes-preview" class="private-notes-preview custom-scrollbar" aria-live="polite"></div>
         <div class="flex justify-between items-center mt-4">
             <span class="text-[10px] text-gray-400 italic">🔒 Visas bara för läraren – ej i elevvy</span>
             <button onclick="savePrivateNotes(); closeNotesModal();" class="bg-[#a6857e] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#92756e] transition-all">Spara &amp; stäng</button>
