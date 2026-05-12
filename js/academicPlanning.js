@@ -696,6 +696,7 @@ function renderCurriculumMap() {
 
             const grid = document.createElement('div');
             grid.className = 'curriculum-map-grid';
+            grid.setAttribute('role', 'list');
 
             (section.items || []).forEach((item) => {
                 const areaNames = areasByItemId[item.id] || [];
@@ -708,7 +709,6 @@ function renderCurriculumMap() {
                 if (!isSelectMode) {
                     card.classList.add('readonly');
                     card.setAttribute('role', 'listitem');
-                    card.tabIndex = 0;
                 }
                 card.style.setProperty('--subject-color', subjectDef.color?.bg || '#a6857e');
                 card.style.setProperty('--subject-light', subjectDef.color?.light || '#f5efe9');
