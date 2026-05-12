@@ -66,13 +66,14 @@ function mixColors(colorA, colorB, ratio) {
 }
 
 function buildColorPalette(value, fallbackColor = null) {
-    const bg = normalizeHexColor(value)
+    const explicitBg = normalizeHexColor(value);
+    const bg = explicitBg
         || normalizeHexColor(fallbackColor?.bg)
         || SUBJECT_FALLBACK_COLOR;
     return {
         bg,
-        light: normalizeHexColor(fallbackColor?.light) || mixColors(bg, '#FFFFFF', 0.88),
-        text: normalizeHexColor(fallbackColor?.text) || mixColors(bg, '#000000', 0.58),
+        light: explicitBg ? mixColors(bg, '#FFFFFF', 0.88) : (normalizeHexColor(fallbackColor?.light) || mixColors(bg, '#FFFFFF', 0.88)),
+        text: explicitBg ? mixColors(bg, '#000000', 0.58) : (normalizeHexColor(fallbackColor?.text) || mixColors(bg, '#000000', 0.58)),
     };
 }
 
