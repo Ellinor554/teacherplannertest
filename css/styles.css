@@ -1,8 +1,10 @@
 body { font-family: 'Inter', sans-serif; background-color: #e5e3df; color: #444; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 .serif-title { font-family: 'Playfair Display', serif; color: #a69085; }
-.sidebar-btn { writing-mode: vertical-rl; transform: rotate(180deg); padding: 1.5rem 0.5rem; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.1em; background-color: #b0a99f; color: white; border: none; cursor: pointer; transition: background-color 0.2s; border-bottom: 1px solid rgba(255,255,255,0.2); }
+.sidebar-btn { writing-mode: vertical-rl; transform: rotate(180deg); padding: 0.975rem 0.5rem; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.08em; background-color: #b0a99f; color: white; border: none; cursor: pointer; transition: background-color 0.2s; border-bottom: 1px solid rgba(255,255,255,0.2); }
 .sidebar-btn.active { background-color: #a6857e; }
-.sidebar-btn-separator { margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.3); }
+.sidebar-btn-separator { margin-top: 13px; border-top: 1px solid rgba(255,255,255,0.3); }
+#main-sidebar { overflow-y: auto; scrollbar-width: none; }
+#main-sidebar::-webkit-scrollbar { display: none; }
 .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #d1cfcb; }
 .clock-display { background-color: #9eb19a; color: white; padding: 0.5rem 1rem; border-radius: 10px; font-family: monospace; font-size: 1.5rem; font-weight: bold; }
 .kursplan-header-btn {
