@@ -28,6 +28,7 @@ import {
     initTodo, toggleTodoPanel, closeTodoPanel,
     toggleTodoDone, deleteTodoItem, toggleCompletedSection
 } from './todo.js';
+import { initSubjectManager, subscribeSubjects } from './subjects.js';
 
 // Inject handleInput callbacks into render.js to avoid circular imports
 setInputCallbacks(handleInput, handleInputRight);
@@ -102,8 +103,10 @@ window.onload = () => {
     // Build the categorised Tool Launcher
     buildToolLauncher(document.getElementById('tool-launcher-categories'));
     initPresentationSettings();
+    initSubjectManager();
     initAcademicPlanning();
     renderAcademicPlanningView();
+    subscribeSubjects(() => refreshUI());
 
     updateFileStatus('localStorage (ingen diskfil kopplad)');
 

@@ -1,23 +1,13 @@
-import { SUBJECT_COLORS } from './config.js';
 import {
     plannerData, currentYear, currentWeek, activeDayIndex, activeLessonId
 } from './state.js';
 import { saveData } from './persistence.js';
+import { getSubjectByKey, getSubjects, openSubjectManager, resolveSubjectKey } from './subjects.js';
 
 const ACADEMIC_STORAGE_KEY = 'teacherplanner_academic_year_planning';
 
-const SUBJECT_DEFINITIONS = [
-    { key: 'matte', label: 'Matte', icon: 'M', aliases: ['matte', 'matematik'], color: SUBJECT_COLORS.matte },
-    { key: 'svenska', label: 'Svenska', icon: 'Sv', aliases: ['svenska'], color: SUBJECT_COLORS.svenska },
-    { key: 'engelska', label: 'Engelska', icon: 'En', aliases: ['engelska'], color: SUBJECT_COLORS.engelska },
-    { key: 'biologi', label: 'Biologi', icon: 'Bi', aliases: ['biologi'], color: SUBJECT_COLORS.biologi },
-    { key: 'kemi', label: 'Kemi', icon: 'Ke', aliases: ['kemi'], color: SUBJECT_COLORS.kemi },
-    { key: 'fysik', label: 'Fysik', icon: 'Fy', aliases: ['fysik'], color: SUBJECT_COLORS.fysik },
-    { key: 'teknik', label: 'Teknik', icon: 'Te', aliases: ['teknik'], color: SUBJECT_COLORS.teknik },
-];
-
 let academicData = loadAcademicData();
-let selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
+let selectedSubjectKey = getSubjects()[0]?.key || null;
 let selectedAreaId = null;
 let curriculumMapMode = null; // 'view' | 'select' | null
 let curriculumMapEscapeHandler = null;
@@ -25,6 +15,10 @@ let curriculumEditEscapeHandler = null;
 
 const SUBJECT_SECTION_TITLES = Array(3).fill('Rubrik');
 const DEFAULT_SECTION_KEY = 'section-1';
+
+function getSubjectDefinitions() {
+    return getSubjects();
+}
 
 function getDefaultSectionKey(subjectKey = selectedSubjectKey) {
     return getMasterSectionDefinitions(subjectKey)[0]?.key || DEFAULT_SECTION_KEY;
@@ -203,13 +197,13 @@ function loadAcademicData() {
     try {
         const parsed = JSON.parse(localStorage.getItem(ACADEMIC_STORAGE_KEY) || '{}');
         const subjects = parsed?.subjects && typeof parsed.subjects === 'object' ? parsed.subjects : {};
-        SUBJECT_DEFINITIONS.forEach((subject) => {
+        getSubjectDefinitions().forEach((subject) => {
             subjects[subject.key] = ensureSubjectDefaults(subjects[subject.key] || { areas: [], masterSections: [] }, subject.key);
         });
         return { subjects };
     } catch {
         const subjects = {};
-        SUBJECT_DEFINITIONS.forEach((subject) => {
+        getSubjectDefinitions().forEach((subject) => {
             subjects[subject.key] = { areas: [], masterSections: [] };
         });
         return { subjects };
@@ -243,10 +237,7 @@ function getSortedAreas(subjectKey) {
 }
 
 function normalizeSubjectToKey(subjectName) {
-    const value = String(subjectName || '').trim().toLowerCase();
-    if (!value) return null;
-    const direct = SUBJECT_DEFINITIONS.find((subject) => subject.aliases.some(alias => value.startsWith(alias)));
-    return direct ? direct.key : null;
+    return resolveSubjectKey(subjectName);
 }
 
 function ensureSelection() {
@@ -495,7 +486,7 @@ function openCurriculumEditor() {
     const titleWrap = document.createElement('div');
     const title = document.createElement('h3');
     title.className = 'curriculum-map-edit-title';
-    title.textContent = `Redigera Kursplan – ${SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey)?.label || ''}`;
+    title.textContent = `Redigera Kursplan – ${getSubjectByKey(selectedSubjectKey)?.label || ''}`;
     const subtitle = document.createElement('p');
     subtitle.className = 'curriculum-map-edit-subtitle';
     subtitle.textContent = 'Ange rubriker och punkter (en punkt per rad).';
@@ -570,7 +561,7 @@ function openCurriculumEditor() {
 }
 
 function renderCurriculumMap() {
-    const subjectDef = SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
+    const subjectDef = getSubjectByKey(selectedSubjectKey) || getSubjectDefinitions()[0];
     const subject = getSubject(selectedSubjectKey);
     const isSelectMode = curriculumMapMode === 'select';
 
@@ -755,7 +746,7 @@ function buildSubjectSidebar(container) {
     const sidebar = document.createElement('div');
     sidebar.className = 'academic-subject-sidebar custom-scrollbar';
 
-    SUBJECT_DEFINITIONS.forEach((subject) => {
+    getSubjectDefinitions().forEach((subject) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'academic-subject-btn';
@@ -780,6 +771,23 @@ function buildSubjectSidebar(container) {
         });
         sidebar.appendChild(btn);
     });
+
+    const spacer = document.createElement('div');
+    spacer.className = 'academic-subject-spacer';
+    sidebar.appendChild(spacer);
+
+    const settingsBtn = document.createElement('button');
+    settingsBtn.type = 'button';
+    settingsBtn.className = 'academic-subject-settings-btn';
+    settingsBtn.setAttribute('aria-label', 'Hantera ämnen');
+    settingsBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+    `;
+    settingsBtn.addEventListener('click', openSubjectManager);
+    sidebar.appendChild(settingsBtn);
 
     container.appendChild(sidebar);
 }
@@ -815,7 +823,7 @@ function buildAreaPanel(container) {
     const areas = getSortedAreas(selectedSubjectKey);
     areas.forEach((area) => {
         ensureAreaDefaults(area);
-        const subjectDef = SUBJECT_DEFINITIONS.find((s) => s.key === selectedSubjectKey);
+        const subjectDef = getSubjectByKey(selectedSubjectKey);
         const subjectColor = subjectDef?.color?.bg || '#a6857e';
 
         const item = document.createElement('div');
@@ -1118,12 +1126,18 @@ export function renderAcademicPlanningView() {
     if (!container) return;
 
     academicData = loadAcademicData();
-    if (!SUBJECT_DEFINITIONS.some((subject) => subject.key === selectedSubjectKey)) {
-        selectedSubjectKey = SUBJECT_DEFINITIONS[0].key;
+    const subjectDefinitions = getSubjectDefinitions();
+    if (!subjectDefinitions.some((subject) => subject.key === selectedSubjectKey)) {
+        selectedSubjectKey = subjectDefinitions[0]?.key || null;
     }
     ensureSelection();
 
-    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === selectedSubjectKey) || SUBJECT_DEFINITIONS[0];
+    const subject = getSubjectByKey(selectedSubjectKey) || subjectDefinitions[0];
+    if (!subject) {
+        container.textContent = '';
+        updateAcademicPlanningTitle('Ämnen');
+        return;
+    }
     updateAcademicPlanningTitle(subject.label);
 
     container.textContent = '';
@@ -1248,7 +1262,7 @@ export function openPlanningPresentationPicker() {
     }
     ensureAreaDefaults(activeArea);
 
-    const subject = SUBJECT_DEFINITIONS.find((entry) => entry.key === subjectKey);
+    const subject = getSubjectByKey(subjectKey);
     const modal = document.getElementById('planning-presentation-modal');
     const subjectText = document.getElementById('planning-presentation-modal-subject');
     const list = document.getElementById('planning-presentation-modal-list');
@@ -1299,7 +1313,8 @@ export function archiveCurrentYear() {
     const yearLabel = label.trim() || `${new Date().getFullYear()}/${new Date().getFullYear() + 1}`;
 
     // Check if any subject has areas to archive
-    const hasAreas = SUBJECT_DEFINITIONS.some((def) => getSubject(def.key).areas.length > 0);
+    const subjectDefinitions = getSubjectDefinitions();
+    const hasAreas = subjectDefinitions.some((def) => getSubject(def.key).areas.length > 0);
     if (!hasAreas) {
         if (!confirm('Inga aktiva områden finns att arkivera. Vill du ändå skapa ett tomt arkiv och nollställa Kursplan-markeringar?')) return;
     }
@@ -1312,7 +1327,7 @@ export function archiveCurrentYear() {
         subjects: {},
     };
 
-    SUBJECT_DEFINITIONS.forEach((subjectDef) => {
+    subjectDefinitions.forEach((subjectDef) => {
         const subject = getSubject(subjectDef.key);
         const areas = getSortedAreas(subjectDef.key);
 
@@ -1376,7 +1391,8 @@ function renderArchiveYearDetail(container, yearSnapshot) {
         return;
     }
 
-    SUBJECT_DEFINITIONS.forEach((subjectDef) => {
+    const subjectDefinitions = getSubjectDefinitions();
+    subjectDefinitions.forEach((subjectDef) => {
         const subjectArchive = yearSnapshot.subjects[subjectDef.key];
         const areas = subjectArchive?.areas || [];
         if (!areas.length) return;
@@ -1459,7 +1475,7 @@ function renderArchiveYearDetail(container, yearSnapshot) {
         container.appendChild(section);
     });
 
-    const hasAny = SUBJECT_DEFINITIONS.some((def) => (yearSnapshot.subjects[def.key]?.areas || []).length > 0);
+    const hasAny = subjectDefinitions.some((def) => (yearSnapshot.subjects[def.key]?.areas || []).length > 0);
     if (!hasAny) {
         const ph = document.createElement('p');
         ph.className = 'archive-detail-placeholder';
